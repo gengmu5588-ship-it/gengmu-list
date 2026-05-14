@@ -1,0 +1,4349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>轻图社-资源站</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --color-dark: #121212;
+      --color-card: #1e1e1e;
+      --color-card-hover: #252525;
+      --color-primary: #7C3AED;
+      --color-primary-hover: #8B5CF6;
+      --color-text: #e5e7eb;
+      --color-text-muted: #9ca3af;
+      --color-border: #374151;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--color-dark);
+      color: var(--color-text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      line-height: 1.6;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    .animate-slide-up {
+      animation: slideUp 0.5s ease-out forwards;
+    }
+
+    .navbar {
+      background: rgba(30, 30, 30, 0.95);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid var(--color-border);
+      padding: 1rem;
+    }
+
+    .navbar-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .navbar-logo {
+      width: 2.5rem;
+      height: 2.5rem;
+      background: linear-gradient(135deg, var(--color-primary), #a78bfa);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .navbar-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--color-primary), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--color-primary), #6d28d9);
+      color: white;
+      padding: 0.625rem 1.25rem;
+      border-radius: 0.5rem;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, var(--color-primary-hover), #7c3aed);
+      transform: scale(1.02);
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: rgba(55, 65, 81, 0.5);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(75, 85, 99, 0.7);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .card {
+      background: var(--color-card);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      background: var(--color-card-hover);
+      transform: scale(1.02);
+      box-shadow: 0 10px 40px rgba(124, 58, 237, 0.1);
+      border-color: rgba(124, 58, 237, 0.2);
+    }
+
+    .card-image {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-image img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .card:hover .card-image img {
+      transform: scale(1.1);
+    }
+
+    .card-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover .card-overlay {
+      opacity: 1;
+    }
+
+    .card-content {
+      padding: 0.75rem;
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-price {
+      color: var(--color-primary);
+      font-weight: 700;
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+
+    .input-field {
+      background: rgba(10, 10, 10, 0.5);
+      color: white;
+      border: 1px solid var(--color-border);
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .input-field::placeholder {
+      color: #6b7280;
+    }
+
+    textarea.input-field {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .grid-gallery {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .grid-gallery {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (min-width: 768px) {
+      .grid-gallery {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.25rem;
+      }
+    }
+
+    .grid-preview {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 640px) {
+      .grid-preview {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .success-box {
+      background: rgba(34, 197, 94, 0.05);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--color-text-muted);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+      color: var(--color-text-muted);
+      font-size: 0.875rem;
+    }
+
+    .admin-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: rgba(30, 30, 30, 0.5);
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      border: 1px solid var(--color-border);
+      transition: all 0.3s ease;
+    }
+
+    .admin-item:hover {
+      background: rgba(30, 30, 30, 0.8);
+      border-color: var(--color-primary);
+    }
+
+    .admin-item-info {
+      flex: 1;
+    }
+
+    .admin-item-title {
+      font-weight: 500;
+      color: var(--color-text);
+    }
+
+    .admin-item-price {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+
+    .price-display {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin: 1rem 0;
+    }
+
+    .link-box {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(34, 197, 94, 0.05);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 0.75rem;
+      display: none;
+    }
+
+    .link-box.show {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* 支付宝弹窗样式 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      padding: 1rem;
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background: var(--color-card);
+      border-radius: 1rem;
+      width: 100%;
+      max-width: 400px;
+      overflow: hidden;
+      transform: scale(0.9) translateY(20px);
+      transition: all 0.3s ease;
+      border: 1px solid var(--color-border);
+    }
+
+    .modal-overlay.show .modal-content {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #1677ff, #0056d6);
+      padding: 1.25rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 1.75rem;
+      height: 1.75rem;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      transition: background 0.2s ease;
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .modal-header h3 {
+      color: white;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+    }
+
+    .qr-container {
+      background: white;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .qr-code {
+      width: 180px;
+      height: 180px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #1677ff, #0056d6);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .qr-code svg {
+      width: 160px;
+      height: 160px;
+    }
+
+    .amount-display {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .amount-label {
+      color: var(--color-text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .amount-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1677ff;
+    }
+
+    .countdown-container {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .countdown-label {
+      color: #ef4444;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .countdown-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ef4444;
+      font-family: monospace;
+    }
+
+    .payment-tips {
+      text-align: center;
+      color: var(--color-text-muted);
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .payment-tips i {
+      margin-right: 0.25rem;
+      color: #10b981;
+    }
+
+    /* 成功提示样式 */
+    .success-box {
+      background: rgba(34, 197, 94, 0.05);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+
+    .copy-btn {
+      background: rgba(124, 58, 237, 0.2);
+      color: var(--color-primary);
+      border: none;
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      transition: all 0.2s ease;
+      margin-top: 0.5rem;
+    }
+
+    .copy-btn:hover {
+      background: rgba(124, 58, 237, 0.3);
+    }
+
+    .copy-btn.copied {
+      background: rgba(34, 197, 94, 0.2);
+      color: #10b981;
+    }
+
+    /* 收款配置样式 */
+    .payment-config {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .payment-option {
+      flex: 1;
+      padding: 1rem;
+      border: 2px solid var(--color-border);
+      border-radius: 0.75rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .payment-option:hover {
+      border-color: var(--color-primary);
+    }
+
+    .payment-option.active {
+      border-color: var(--color-primary);
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .payment-option i {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .payment-option.alipay i {
+      color: #1677ff;
+    }
+
+    .payment-option.wechat i {
+      color: #10b981;
+    }
+
+    .payment-option span {
+      font-size: 0.875rem;
+      color: var(--color-text);
+    }
+
+    /* 聊天消息样式 */
+    .chat-container {
+      height: 400px;
+      overflow-y: auto;
+      padding: 1rem;
+      background: rgba(10, 10, 10, 0.5);
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .chat-message {
+      margin-bottom: 1rem;
+      display: flex;
+    }
+
+    .chat-message.user {
+      justify-content: flex-end;
+    }
+
+    .chat-message.admin {
+      justify-content: flex-start;
+    }
+
+    .chat-bubble {
+      max-width: 15ch;
+      min-width: fit-content;
+      width: fit-content;
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      font-size: 0.875rem;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    .chat-message.user .chat-bubble {
+      background: var(--color-primary);
+      color: white;
+      border-bottom-right-radius: 0.25rem;
+    }
+
+    .chat-message.admin .chat-bubble {
+      background: var(--color-card);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-bottom-left-radius: 0.25rem;
+    }
+
+    .chat-timestamp {
+      font-size: 0.625rem;
+      color: var(--color-text-muted);
+      margin-top: 0.25rem;
+      text-align: right;
+    }
+
+    .chat-input-container {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: rgba(10, 10, 10, 0.5);
+      border: 1px solid var(--color-border);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      color: white;
+    }
+
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    /* 用户订单样式 */
+    .order-item {
+      background: rgba(30, 30, 30, 0.5);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--color-border);
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .order-id {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+
+    .order-status {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+
+    .order-status.completed {
+      background: rgba(34, 197, 94, 0.2);
+      color: #10b981;
+    }
+
+    .order-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .order-product {
+      font-weight: 500;
+      color: var(--color-text);
+    }
+
+    .order-price {
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+
+    /* 表单卡片样式 */
+    .form-card {
+      background: var(--color-card);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      border: 1px solid var(--color-border);
+    }
+
+    /* 图片上传区域样式 */
+    .upload-area {
+      border: 2px dashed var(--color-border);
+      border-radius: 0.75rem;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 1rem;
+    }
+
+    .upload-area:hover {
+      border-color: var(--color-primary);
+      background: rgba(124, 58, 237, 0.05);
+    }
+
+    .upload-area.dragover {
+      border-color: var(--color-primary);
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .editor-btn {
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 0.25rem;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.15s;
+    }
+    .editor-btn:hover {
+      background: rgba(124, 58, 237, 0.2);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    .upload-preview {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .upload-preview {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .preview-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+    }
+
+    .preview-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-item .remove-btn {
+      position: absolute;
+      top: 0.25rem;
+      right: 0.25rem;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: rgba(239, 68, 68, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .preview-item:hover .remove-btn {
+      opacity: 1;
+    }
+
+    .preview-item .remove-btn:hover {
+      background: rgba(239, 68, 68, 1);
+    }
+
+    .upload-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(124, 58, 237, 0.3);
+    }
+
+    .upload-progress-bar {
+      height: 100%;
+      background: var(--color-primary);
+      transition: width 0.3s ease;
+    }
+
+    /* 私信列表样式 */
+    .message-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .message-item {
+      padding: 0.75rem;
+      background: rgba(10, 10, 10, 0.5);
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .message-item:hover {
+      background: rgba(124, 58, 237, 0.1);
+      border-color: var(--color-primary);
+    }
+
+    .message-item.active {
+      background: rgba(124, 58, 237, 0.15);
+      border-color: var(--color-primary);
+    }
+
+    .message-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+
+    .message-item-name {
+      font-weight: 500;
+      color: white;
+    }
+
+    .message-item-time {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+
+    .message-item-preview {
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 链接状态样式 */
+    .link-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+
+    .link-status.normal {
+      background: rgba(34, 197, 94, 0.2);
+      color: #10b981;
+    }
+
+    .link-status.invalid {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .link-status.cancelled {
+      background: rgba(251, 146, 60, 0.2);
+      color: #fb923c;
+    }
+
+    /* 水印样式 */
+    .watermark {
+      position: relative;
+    }
+
+    .watermark::after {
+      content: '视觉志杂货店';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+      pointer-events: none;
+      white-space: nowrap;
+      text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+      user-select: none;
+    }
+
+    /* 首页横幅样式 */
+    .hero-banner {
+      width: 100%;
+      height: 200px;
+      border-radius: 1rem;
+      overflow: hidden;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    .hero-banner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .hero-banner.empty {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(167, 139, 250, 0.2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-muted);
+    }
+
+    /* 分类导航样式 */
+    .category-nav {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+      scrollbar-width: none;
+    }
+
+    .category-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .category-item {
+      padding: 0.5rem 1rem;
+      background: rgba(10, 10, 10, 0.5);
+      border: 1px solid var(--color-border);
+      border-radius: 9999px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: var(--color-text-muted);
+    }
+
+    .category-item:hover {
+      background: rgba(124, 58, 237, 0.1);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    .category-item.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: white;
+    }
+
+    /* 分类管理样式 */
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .category-item-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      background: rgba(10, 10, 10, 0.5);
+      border-radius: 0.5rem;
+    }
+
+    .category-item-row input {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: 0.375rem;
+      padding: 0.5rem;
+      color: white;
+    }
+
+    .category-item-row input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    .category-item-row button {
+      padding: 0.5rem;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: 0.375rem;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .category-item-row button:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* 排序按钮 */
+    .sort-btn {
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: 0.375rem;
+      padding: 0.375rem;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .sort-btn:hover {
+      background: rgba(124, 58, 237, 0.1);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    /* 下拉菜单样式 */
+    .dropdown {
+      position: relative;
+    }
+
+    .user-dropdown-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      background: linear-gradient(135deg, var(--color-primary), #6d28d9);
+      border: none;
+      border-radius: 2rem;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 8rem;
+    }
+
+    .user-dropdown-toggle:hover {
+      background: linear-gradient(135deg, var(--color-primary-hover), #7c3aed);
+    }
+
+    .user-dropdown-avatar {
+      width: 1.75rem;
+      height: 1.75rem;
+      min-width: 1.75rem;
+      min-height: 1.75rem;
+      max-width: 1.75rem;
+      max-height: 1.75rem;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .user-dropdown-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .user-dropdown-avatar i {
+      font-size: 1.1rem;
+      color: white;
+    }
+
+    .user-dropdown-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      max-width: 5rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .user-dropdown-arrow {
+      font-size: 0.65rem;
+      margin-left: auto;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .user-dropdown-toggle.active .user-dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      right: 0;
+      background: var(--color-card);
+      border: 1px solid var(--color-border);
+      border-radius: 0.5rem;
+      min-width: 12rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      display: none;
+      z-index: 1000;
+      padding: 0.25rem 0;
+      margin: 0;
+    }
+
+    .dropdown-menu.show {
+      display: block;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.625rem 1rem;
+      background: none;
+      border: none;
+      text-align: left;
+      color: var(--color-text);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .dropdown-item i {
+      width: 1rem;
+      color: var(--color-primary);
+    }
+
+    /* 聊天输入框 */
+    .chat-input-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem;
+      background: var(--color-card);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      z-index: 50;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border-radius: 2rem;
+      border: 1px solid var(--color-border);
+      background: var(--color-dark);
+      color: var(--color-text);
+      font-size: 0.875rem;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: var(--color-primary);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.25rem;
+      height: 1.25rem;
+      padding: 0 0.375rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      line-height: 1;
+      margin-left: 0.375rem;
+    }
+
+    .badge-red {
+      background: #ef4444;
+      color: white;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text-muted);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      background: rgba(124, 58, 237, 0.1);
+      border-color: var(--color-primary);
+      color: var(--color-text);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--color-primary), #6d28d9);
+      border-color: transparent;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+<script>
+// ==========================================
+// 数据存储
+// ==========================================
+function getDB(k) { return JSON.parse(localStorage.getItem(k) || '[]') }
+function setDB(k, v) { localStorage.setItem(k, JSON.stringify(v)) }
+function isAdmin() { return localStorage.getItem('admin') === 'ok' }
+
+// ==========================================
+// 页面渲染
+// ==========================================
+function renderPage() {
+  const path = window.location.hash;
+  const root = document.getElementById('root');
+
+  if (path === '' || path === '#index') {
+    renderIndex(root);
+  } else if (path.startsWith('#detail')) {
+    renderDetail(root, path.split('=')[1]);
+  } else if (path.startsWith('#category')) {
+    const categoryId = path.split('=')[1] || '';
+    renderIndex(root, categoryId);
+  } else if (path === '#login') {
+    renderLogin(root);
+  } else if (path === '#admin') {
+    renderAdmin(root);
+  } else if (path === '#auth') {
+    renderAuth(root);
+  } else if (path === '#chat') {
+    renderChat(root);
+  } else if (path === '#orders') {
+    renderUserOrders(root);
+  } else if (path === '#profile') {
+    renderProfile(root);
+  } else if (path.startsWith('#userOrders')) {
+    const userId = path.split('=')[1] || '';
+    renderUserOrders(root, userId);
+  }
+}
+
+function renderIndex(root, categoryId = '') {
+  window.currentCategoryId = categoryId;
+  const albums = getDB('albums');
+  const categories = getDB('categories');
+  const heroConfig = getDB('heroConfig')[0] || { image: '', logo: '' };
+  const user = getCurrentUser();
+  
+  // 确保有默认分类
+  if (categories.length === 0) {
+    setDB('categories', [{ id: 'home', name: '首页', sort: 0 }]);
+  }
+  
+  // 过滤图集
+  let filteredAlbums = albums;
+  if (categoryId && categoryId !== 'home') {
+    filteredAlbums = albums.filter(a => a.categoryId === categoryId);
+  }
+  
+  // 按发布时间排序（最新在前）
+  filteredAlbums.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+  
+  let userButtons = '';
+  if (user) {
+    userButtons = `
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button class="btn btn-secondary" onclick="go('#orders')">
+          <i class="fas fa-receipt"></i>我的订单
+        </button>
+        <button class="btn btn-secondary" onclick="go('#chat')">
+          <i class="fas fa-comments"></i>联系站主
+        </button>
+        <!-- 个人主页下拉菜单 -->
+        <div class="dropdown">
+          <button class="user-dropdown-toggle" onclick="toggleDropdown(event)">
+            <div class="user-dropdown-avatar">
+              ${user.avatar ? `<img src="${user.avatar}" alt="${user.username}" style="display: block;">` : `<i class="fas fa-user-circle"></i>`}
+            </div>
+            <span class="user-dropdown-name">${user.username}</span>
+            <i class="fas fa-chevron-down user-dropdown-arrow"></i>
+          </button>
+          <div class="dropdown-menu" id="userDropdown">
+            <div style="padding: 0.5rem 1rem; border-bottom: 1px solid var(--color-border);">
+              <div style="font-size: 0.75rem; color: var(--color-text-muted);">ID: ${user.id}</div>
+            </div>
+            <button class="dropdown-item" onclick="go('#profile')">
+              <i class="fas fa-home"></i>个人主页
+            </button>
+            <button class="dropdown-item" onclick="changeNickname()">
+              <i class="fas fa-edit"></i>修改昵称
+            </button>
+            <button class="dropdown-item" onclick="userLogout()">
+              <i class="fas fa-sign-out-alt"></i>退出登录
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    userButtons = `
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-secondary" onclick="go('#auth')">
+          <i class="fas fa-user"></i>登录/注册
+        </button>
+        <button class="btn btn-secondary" onclick="go('#chat')">
+          <i class="fas fa-comments"></i>联系站主
+        </button>
+        <button class="btn btn-primary" onclick="go('#login')">
+          <i class="fas fa-user-cog"></i>管理
+        </button>
+      </div>
+    `;
+  }
+  
+  // 生成分类导航
+  let categoryHtml = '';
+  categories.sort((a, b) => a.sort - b.sort).forEach(cat => {
+    const isActive = !categoryId && cat.id === 'home' || categoryId === cat.id;
+    categoryHtml += `
+      <div class="category-item ${isActive ? 'active' : ''}" onclick="switchCategory('${cat.id}')">
+        ${cat.name}
+      </div>
+    `;
+  });
+  
+  // 分页配置
+  const pageSize = 20;
+  const currentPage = parseInt(window.currentPage || '1');
+  const totalPages = Math.ceil(filteredAlbums.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedAlbums = filteredAlbums.slice(startIndex, endIndex);
+  
+  // 获取评论数据
+  const reviews = getDB('reviews') || [];
+  const favorites = getDB('favorites') || [];
+  
+  // 获取用户订单
+  const userOrders = user ? getDB('orders').filter(o => o.userId === user.id) : [];
+  const purchasedAlbumIds = new Set(userOrders.map(o => o.albumId));
+
+  let html = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo">
+            ${heroConfig.logo ? `<img src="${heroConfig.logo}" alt="Logo">` : '<i class="fas fa-images text-white text-lg"></i>'}
+          </div>
+          <h1 class="navbar-title">轻图社资源仓库</h1>
+        </div>
+        ${userButtons}
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+      <!-- 首页横幅 -->
+      ${heroConfig.image ? `
+        <div class="hero-banner">
+          <img src="${heroConfig.image}" alt="首页横幅">
+        </div>
+      ` : ''}
+      
+      <!-- 分类导航 -->
+      <div class="category-nav">
+        ${categoryHtml}
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h2 class="page-title" style="margin-bottom: 0.25rem;">精选图集</h2>
+          <p class="page-subtitle">共 ${filteredAlbums.length} 个图集</p>
+        </div>
+        <div style="position: relative;">
+          <input type="text" id="searchInput" class="input-field" placeholder="搜索图集..." style="margin-bottom: 0; padding-right: 2.5rem; width: 220px;" onkeydown="if(event.keyCode===13) searchAlbums()">
+          <button onclick="searchAlbums()" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-primary); cursor: pointer; padding: 0.25rem;">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid-gallery">
+  `;
+
+  if (paginatedAlbums.length === 0) {
+    html += `
+      <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <p>暂无图集</p>
+      </div>
+    `;
+  } else {
+    paginatedAlbums.forEach((al, index) => {
+      const albumReviews = reviews.filter(r => r.albumId === al.id);
+      const favCount = favorites.filter(f => f.albumId === al.id).length;
+      const isFavorited = user ? favorites.some(f => f.albumId === al.id && f.userId === user.id) : false;
+      const canReview = purchasedAlbumIds.has(al.id);
+      html += `
+        <div class="card animate-slide-up" style="animation-delay: ${index * 0.1}s" onclick="openAlbum('${al.id}')">
+          <div class="card-image watermark">
+            <img src="${al.cover}" alt="${al.title}">
+            <div class="card-overlay"></div>
+          </div>
+          <div class="card-content">
+            <p class="card-title">${al.title}</p>
+            <div class="flex items-center justify-between mt-2">
+              <span class="card-price">¥ ${al.price}</span>
+              <span class="text-gray-500 text-xs">${al.preview.length}张</span>
+            </div>
+            <div class="card-review mt-2">
+              <span onclick="event.stopPropagation(); openReview('${al.id}', ${canReview})" style="cursor:pointer;">
+                <i class="fas fa-comment"></i>
+                <span>${albumReviews.length}</span>
+              </span>
+              <span style="margin-left: 0.75rem;">
+                <i class="fas fa-heart"></i>
+                <span>${favCount}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // 分页按钮
+  let paginationHtml = '';
+  if (totalPages > 1) {
+    paginationHtml = `
+      <div class="pagination">
+        <button class="pagination-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        ${Array.from({ length: totalPages }, (_, i) => i + 1).map(page => `
+          <button class="pagination-btn ${page === currentPage ? 'active' : ''}" onclick="goToPage(${page})">
+            ${page}
+          </button>
+        `).join('')}
+        <button class="pagination-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    `;
+  }
+
+  // 底部轮播横幅
+  const banners = heroConfig.banners || [];
+  let bannerCarousel = '';
+  if (banners.length > 0) {
+    bannerCarousel = `
+      <div class="banner-carousel" id="bannerCarousel">
+        <div class="banner-container">
+          ${banners.map((banner, index) => `
+            <div class="banner-item ${index === 0 ? 'active' : ''}">
+              <img src="${banner}" alt="横幅${index + 1}">
+            </div>
+          `).join('')}
+        </div>
+        <div class="banner-indicators">
+          ${banners.map((_, index) => `
+            <button class="indicator ${index === 0 ? 'active' : ''}" onclick="goToBanner(${index})"></button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `
+      </div>
+      
+      ${paginationHtml}
+      
+      ${bannerCarousel}
+      
+      <footer style="text-align: center; padding: 2rem 1rem 1.5rem; margin-top: 2rem; border-top: 1px solid var(--color-border);">
+        <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">
+          ${heroConfig.copyright || '© 2024 轻图社 版权所有'}
+        </p>
+        ${heroConfig.filing ? `<p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">${heroConfig.filing}</p>` : ''}
+        ${heroConfig.security ? `<p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">${heroConfig.security}</p>` : ''}
+      </footer>
+    </div>
+  `;
+
+  root.innerHTML = html;
+  
+  // 启动轮播
+  if (banners.length > 1) {
+    startBannerCarousel();
+  }
+}
+
+function switchCategory(categoryId) {
+  const root = document.getElementById('root');
+  const albumsContainer = document.querySelector('.grid-gallery');
+  const currentCatId = window.currentCategoryId || '';
+  
+  if (categoryId === currentCatId) return;
+  
+  const direction = getSlideDirection(currentCatId, categoryId);
+  
+  if (albumsContainer) {
+    albumsContainer.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+    albumsContainer.style.transform = direction === 'left' ? 'translateX(-30px)' : 'translateX(30px)';
+    albumsContainer.style.opacity = '0';
+  }
+  
+  setTimeout(() => {
+    window.currentCategoryId = categoryId;
+    window.currentPage = '1';
+    
+    const albums = getDB('albums');
+    let filteredAlbums = albums;
+    if (categoryId && categoryId !== 'home') {
+      filteredAlbums = albums.filter(a => a.categoryId === categoryId);
+    }
+    filteredAlbums.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+    
+    const pageSize = 20;
+    const currentPage = 1;
+    const totalPages = Math.ceil(filteredAlbums.length / pageSize);
+    const paginatedAlbums = filteredAlbums.slice(0, pageSize);
+    const reviews = getDB('reviews') || [];
+    const favorites = getDB('favorites') || [];
+    const user = getCurrentUser();
+    const userOrders = user ? getDB('orders').filter(o => o.userId === user.id) : [];
+    const purchasedAlbumIds = new Set(userOrders.map(o => o.albumId));
+    
+    let galleryHtml = '';
+    if (paginatedAlbums.length === 0) {
+      galleryHtml = `<div class="empty-state"><i class="fas fa-folder-open"></i><p>暂无图集</p></div>`;
+    } else {
+      paginatedAlbums.forEach((al, index) => {
+        const albumReviews = reviews.filter(r => r.albumId === al.id);
+        const favCount = favorites.filter(f => f.albumId === al.id).length;
+        const canReview = purchasedAlbumIds.has(al.id);
+        galleryHtml += `
+          <div class="card animate-slide-up" style="animation-delay: ${index * 0.1}s" onclick="openAlbum('${al.id}')">
+            <div class="card-image watermark">
+              <img src="${al.cover}" alt="${al.title}">
+              <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+              <p class="card-title">${al.title}</p>
+              <div class="flex items-center justify-between mt-2">
+                <span class="card-price">¥ ${al.price}</span>
+                <span class="text-gray-500 text-xs">${al.preview.length}张</span>
+              </div>
+              <div class="card-review mt-2">
+                <span onclick="event.stopPropagation(); openReview('${al.id}', ${canReview})" style="cursor:pointer;">
+                  <i class="fas fa-comment"></i>
+                  <span>${albumReviews.length}</span>
+                </span>
+                <span style="margin-left: 0.75rem;">
+                  <i class="fas fa-heart"></i>
+                  <span>${favCount}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+    
+    let paginationHtml = '';
+    if (totalPages > 1) {
+      paginationHtml = `
+        <div class="pagination">
+          <button class="pagination-btn" disabled>
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          ${Array.from({ length: totalPages }, (_, i) => i + 1).map(page => `
+            <button class="pagination-btn ${page === 1 ? 'active' : ''}" onclick="goToPage(${page})">
+              ${page}
+            </button>
+          `).join('')}
+          <button class="pagination-btn" onclick="goToPage(2)" ${totalPages < 2 ? 'disabled' : ''}>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      `;
+    }
+    
+    const newContainer = document.querySelector('.grid-gallery');
+    if (newContainer) {
+      newContainer.innerHTML = galleryHtml;
+    }
+    
+    const paginationContainer = document.querySelector('.pagination');
+    if (paginationContainer && paginationHtml) {
+      paginationContainer.outerHTML = paginationHtml;
+    } else if (paginationContainer && !paginationHtml) {
+      paginationContainer.remove();
+    } else if (!paginationContainer && paginationHtml) {
+      const footer = document.querySelector('footer');
+      if (footer) {
+        footer.insertAdjacentHTML('beforebegin', paginationHtml);
+      }
+    }
+    
+    document.querySelectorAll('.category-item').forEach(el => {
+      el.classList.remove('active');
+      if (el.getAttribute('onclick')?.includes(`'${categoryId}'`)) {
+        el.classList.add('active');
+      }
+    });
+    
+    const titleEl = document.querySelector('.page-title');
+    if (titleEl) titleEl.textContent = '精选图集';
+    const subtitleEl = document.querySelector('.page-subtitle');
+    if (subtitleEl) subtitleEl.textContent = `共 ${filteredAlbums.length} 个图集`;
+    
+    if (newContainer) {
+      newContainer.style.transition = 'none';
+      newContainer.style.transform = direction === 'left' ? 'translateX(30px)' : 'translateX(-30px)';
+      newContainer.style.opacity = '0';
+      requestAnimationFrame(() => {
+        newContainer.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+        newContainer.style.transform = 'translateX(0)';
+        newContainer.style.opacity = '1';
+      });
+    }
+  }, 250);
+}
+
+function getSlideDirection(from, to) {
+  const categories = getDB('categories');
+  categories.sort((a, b) => a.sort - b.sort);
+  const fromIndex = categories.findIndex(c => c.id === (from || 'home'));
+  const toIndex = categories.findIndex(c => c.id === to);
+  return toIndex > fromIndex ? 'left' : 'right';
+}
+
+// 分页函数
+function goToPage(page) {
+  window.currentPage = page.toString();
+  renderIndex(document.getElementById('root'), window.currentCategoryId || '');
+}
+
+// 打开评论弹窗
+function openReview(albumId, canReview) {
+  const reviews = getDB('reviews') || [];
+  const albumReviews = reviews.filter(r => r.albumId === albumId);
+  const album = getDB('albums').find(a => a.id === albumId);
+  const user = getCurrentUser();
+  
+  let reviewHtml = '';
+  if (albumReviews.length === 0) {
+    reviewHtml = '<div class="empty-state"><i class="fas fa-comments"></i><p>暂无评论</p></div>';
+  } else {
+    reviewHtml = albumReviews.map(r => `
+      <div class="review-item">
+        <div class="review-header">
+          <div class="review-avatar">
+            ${r.userAvatar ? `<img src="${r.userAvatar}">` : '<i class="fas fa-user"></i>'}
+          </div>
+          <div class="review-info">
+            <div class="review-username">${r.username}</div>
+            <div class="review-time">${formatTime(r.time)}</div>
+          </div>
+        </div>
+        <div class="review-content">${r.content}</div>
+      </div>
+    `).join('');
+  }
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay show';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+          <i class="fas fa-times"></i>
+        </button>
+        <h3>
+          <i class="fas fa-comments"></i>
+          ${album?.title || '图集评论'}
+        </h3>
+      </div>
+      <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+        ${reviewHtml}
+      </div>
+      ${canReview && user ? `
+        <div class="modal-footer">
+          <textarea id="reviewContent" class="form-control" placeholder="写下您的评价..." rows="3"></textarea>
+          <button class="btn" style="width: 100%; margin-top: 0.5rem;" onclick="submitReview('${albumId}')">
+            <i class="fas fa-paper-plane"></i>提交评论
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+// 提交评论
+function submitReview(albumId) {
+  const content = document.getElementById('reviewContent').value.trim();
+  const user = getCurrentUser();
+  
+  if (!content) {
+    alert('请输入评论内容');
+    return;
+  }
+  
+  const review = {
+    id: Date.now().toString(),
+    albumId,
+    userId: user.id,
+    username: user.username,
+    userAvatar: user.avatar,
+    content,
+    time: Date.now()
+  };
+  
+  const reviews = getDB('reviews') || [];
+  reviews.push(review);
+  setDB('reviews', reviews);
+  
+  alert('评论提交成功！');
+  document.querySelector('.modal-overlay').remove();
+  renderPage();
+}
+
+// 轮播相关函数
+let bannerInterval = null;
+
+function startBannerCarousel() {
+  if (bannerInterval) clearInterval(bannerInterval);
+  bannerInterval = setInterval(() => {
+    const currentIndex = Array.from(document.querySelectorAll('.banner-item')).findIndex(el => el.classList.contains('active'));
+    const indicators = document.querySelectorAll('.indicator');
+    const items = document.querySelectorAll('.banner-item');
+    const nextIndex = (currentIndex + 1) % items.length;
+    
+    items.forEach((item, i) => item.classList.toggle('active', i === nextIndex));
+    indicators.forEach((ind, i) => ind.classList.toggle('active', i === nextIndex));
+  }, 3000);
+}
+
+function goToBanner(index) {
+  const indicators = document.querySelectorAll('.indicator');
+  const items = document.querySelectorAll('.banner-item');
+  
+  items.forEach((item, i) => item.classList.toggle('active', i === index));
+  indicators.forEach((ind, i) => ind.classList.toggle('active', i === index));
+}
+
+// 回到顶部按钮
+function createBackToTop() {
+  let backBtn = document.getElementById('backToTop');
+  if (backBtn) return;
+  
+  backBtn = document.createElement('button');
+  backBtn.id = 'backToTop';
+  backBtn.className = 'back-to-top';
+  backBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+  backBtn.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.body.appendChild(backBtn);
+  
+  window.addEventListener('scroll', () => {
+    backBtn.classList.toggle('show', window.scrollY > 300);
+  });
+}
+
+// 页面渲染后创建回到顶部按钮
+document.addEventListener('DOMContentLoaded', createBackToTop);
+
+function renderDetail(root, id) {
+  const list = getDB('albums');
+  const item = list.find(a => a.id === id);
+  const heroConfig = getDB('heroConfig')[0] || { image: '', logo: '' };
+  const user = getCurrentUser();
+  const favorites = getDB('favorites') || [];
+  const isFavorited = user ? favorites.some(f => f.albumId === id && f.userId === user.id) : false;
+  const favCount = favorites.filter(f => f.albumId === id).length;
+  
+  if (!item) {
+    go('#index');
+    return;
+  }
+
+  root.innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo">
+            ${heroConfig.logo ? `<img src="${heroConfig.logo}" alt="Logo">` : '<i class="fas fa-images text-white text-lg"></i>'}
+          </div>
+          <h1 class="navbar-title">轻图社资源仓库</h1>
+        </div>
+        <button class="btn btn-secondary" onclick="go('#index')">
+          <i class="fas fa-arrow-left"></i>
+          返回首页
+        </button>
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h2 class="page-title" style="margin-bottom: 0.25rem;">${item.title}</h2>
+          <p class="page-subtitle">${item.preview.length}张高清图片 · 无水印原版</p>
+        </div>
+        <button id="favBtn" class="btn ${isFavorited ? '' : 'btn-secondary'}" style="flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem;" onclick="toggleFavorite('${id}')">
+          <i class="fas fa-heart" style="color: ${isFavorited ? '#ef4444' : 'inherit'};"></i>
+          <span>${isFavorited ? '已收藏' : '收藏'}</span>
+          <span style="font-size: 0.75rem; opacity: 0.8;">${favCount}</span>
+        </button>
+      </div>
+
+      ${item.description ? `
+        <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: 0.75rem;">
+            <i class="fas fa-file-alt" style="margin-right: 0.25rem;"></i>图集介绍
+          </h4>
+          <div style="color: var(--color-text); font-size: 0.875rem; line-height: 1.8;">${item.description}</div>
+        </div>
+      ` : ''}
+
+      <div class="grid-preview mb-6">
+        ${item.preview.map((u, i) => `
+          <div class="card animate-slide-up watermark" style="animation-delay: ${i * 0.1}s">
+            <img src="${u}" alt="预览图" style="width:100%; aspect-square; object-fit:cover;">
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="card" style="padding: 2rem; text-align: center;">
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
+          <i class="fas fa-shield-alt text-primary"></i>
+          <span class="text-sm text-primary">获取原版高清无水印</span>
+        </div>
+        
+        <h3 class="text-xl font-bold text-white mb-2">一键获取全部原图</h3>
+        <p class="text-gray-400 text-sm mb-4">购买后即可获取夸克网盘下载链接，包含全部高清无水印原图</p>
+        
+        <div class="price-display">¥ ${item.price}</div>
+        
+        <button class="btn" style="width: 100%; padding: 1rem; font-size: 1rem;" onclick="showAlipayModal('${item.price}', '${item.link}', '${item.id}', '${item.title}')">
+          <i class="fas fa-alipay"></i>
+          支付宝立即购买
+        </button>
+        
+        <div id="linkBox" class="link-box">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fas fa-check-circle text-green-400"></i>
+            <span class="text-green-400 font-medium">购买成功！</span>
+          </div>
+          <div class="mb-2">
+            <p class="text-gray-400 text-sm mb-1">网盘链接：</p>
+            <p class="text-primary break-all" id="downloadLink">${item.link}</p>
+          </div>
+          ${item.extractCode ? `
+          <div class="mb-2">
+            <p class="text-gray-400 text-sm mb-1">提取码：</p>
+            <p class="text-primary" id="extractCode">${item.extractCode}</p>
+          </div>
+          ` : ''}
+          ${item.password ? `
+          <div class="mb-2">
+            <p class="text-gray-400 text-sm mb-1">解压码：</p>
+            <p class="text-primary" id="password">${item.password}</p>
+          </div>
+          ` : ''}
+          <button class="copy-btn" onclick="copyLink('${item.link}', this)">
+            <i class="fas fa-copy"></i>
+            复制链接
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLogin(root) {
+  const rememberMe = localStorage.getItem('adminRemember') === 'true';
+  
+  root.innerHTML = `
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; background: linear-gradient(135deg, #121212 0%, #1a1a2e 100%);">
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none;">
+        <div style="position: absolute; -top-40; -right-40; width: 320px; height: 320px; background: var(--color-primary); opacity: 0.1; border-radius: 50%; filter: blur(80px);"></div>
+        <div style="position: absolute; -bottom-40; -left-40; width: 320px; height: 320px; background: #a78bfa; opacity: 0.1; border-radius: 50%; filter: blur(80px);"></div>
+      </div>
+      
+      <div class="card animate-slide-up" style="padding: 2.5rem; width: 100%; max-width: 400px; position: relative; z-index: 1;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+          <div style="width: 4rem; height: 4rem; background: linear-gradient(135deg, var(--color-primary), #a78bfa); border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            <i class="fas fa-user-shield text-white text-2xl"></i>
+          </div>
+          <h3 style="font-size: 1.5rem; color: var(--color-primary); font-weight: 700;">后台登录</h3>
+          <p style="color: var(--color-text-muted); font-size: 0.875rem; margin-top: 0.5rem;">请输入管理员账号密码</p>
+        </div>
+        
+        <input id="user" class="input-field" placeholder="账号" value="${rememberMe ? 'admin' : ''}">
+        <input id="pwd" type="password" class="input-field" placeholder="密码">
+        
+        <label class="remember-me">
+          <input type="checkbox" id="rememberMe" ${rememberMe ? 'checked' : ''}>
+          <span>下次自动登录</span>
+        </label>
+        
+        <button class="btn" style="width: 100%; padding: 0.875rem;" onclick="login()">
+          <i class="fas fa-sign-in-alt"></i>
+          登录
+        </button>
+        
+        <div style="text-align: center; margin-top: 1.5rem; color: var(--color-text-muted); font-size: 0.75rem;">
+          仅限管理员登录，账号提示: admin
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 用户注册登录页面
+function renderAuth(root) {
+  root.innerHTML = `
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; background: linear-gradient(135deg, #121212 0%, #1a1a2e 100%);">
+      <div style="position: absolute; inset: 0; overflow: hidden; pointer-events: none;">
+        <div style="position: absolute; top: -40px; right: -40px; width: 320px; height: 320px; background: var(--color-primary); opacity: 0.1; border-radius: 50%; filter: blur(80px);"></div>
+        <div style="position: absolute; bottom: -40px; left: -40px; width: 320px; height: 320px; background: #a78bfa; opacity: 0.1; border-radius: 50%; filter: blur(80px);"></div>
+      </div>
+      
+      <div class="form-card animate-slide-up" style="width: 100%; max-width: 420px; position: relative; z-index: 1;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+          <div style="width: 4rem; height: 4rem; background: linear-gradient(135deg, var(--color-primary), #a78bfa); border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+            <i class="fas fa-user-circle text-white text-2xl"></i>
+          </div>
+          <h3 style="font-size: 1.5rem; color: white; font-weight: 700;">用户中心</h3>
+        </div>
+        
+        <!-- 选项卡 -->
+        <div style="display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border);">
+          <button class="auth-tab active" onclick="switchAuthTab('login')" style="flex: 1; padding: 0.75rem; background: none; border: none; color: var(--color-text); font-size: 0.875rem; border-bottom: 2px solid var(--color-primary);">
+            登录
+          </button>
+          <button class="auth-tab" onclick="switchAuthTab('register')" style="flex: 1; padding: 0.75rem; background: none; border: none; color: var(--color-text-muted); font-size: 0.875rem;">
+            注册
+          </button>
+        </div>
+        
+        <!-- 登录表单 -->
+        <div id="loginForm">
+          <input id="loginUsername" class="input-field" placeholder="账号">
+          <input id="loginPassword" type="password" class="input-field" placeholder="密码">
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0.75rem 0; cursor: pointer;">
+            <input type="checkbox" id="rememberMe" style="accent-color: var(--color-primary); width: 1rem; height: 1rem;">
+            <span style="font-size: 0.875rem; color: var(--color-text-muted);">记住账号密码</span>
+          </label>
+          <button class="btn" style="width: 100%; padding: 0.875rem;" onclick="userLogin()">
+            <i class="fas fa-sign-in-alt"></i>登录
+          </button>
+        </div>
+        
+        <!-- 注册表单 -->
+        <div id="registerForm" style="display: none;">
+          <input id="regUsername" class="input-field" placeholder="账号">
+          <input id="regPassword" type="password" class="input-field" placeholder="密码">
+          <input id="regConfirm" type="password" class="input-field" placeholder="确认密码">
+          <button class="btn" style="width: 100%; padding: 0.875rem;" onclick="registerUser()">
+            <i class="fas fa-user-plus"></i>注册
+          </button>
+        </div>
+        
+        <div style="text-align: center; margin-top: 1.5rem;">
+          <button onclick="go('#index')" style="background: none; border: none; color: var(--color-text-muted); font-size: 0.875rem;">
+            返回首页
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const saved = localStorage.getItem('savedUserCredentials');
+  if (saved) {
+    try {
+      const creds = JSON.parse(saved);
+      const usernameInput = document.getElementById('loginUsername');
+      const passwordInput = document.getElementById('loginPassword');
+      const rememberCheckbox = document.getElementById('rememberMe');
+      if (usernameInput) usernameInput.value = creds.username || '';
+      if (passwordInput) passwordInput.value = creds.password || '';
+      if (rememberCheckbox) rememberCheckbox.checked = true;
+    } catch(e) {}
+  }
+}
+
+function renderChat(root) {
+  const allMessages = getDB('messages');
+  const heroConfig = getDB('heroConfig')[0] || { image: '', logo: '' };
+  const user = getCurrentUser();
+  const userId = user?.id || 'guest';
+  
+  const messages = allMessages.filter(m => {
+    if (m.isAdmin && m.targetUserId === userId) return true;
+    if (!m.isAdmin && m.userId === userId) return true;
+    return false;
+  });
+  
+  let messageHtml = '';
+  
+  if (messages.length === 0) {
+    messageHtml = `<div class="empty-state"><i class="fas fa-comments"></i><p>暂无消息，发送一条给站主吧</p></div>`;
+  } else {
+    messages.sort((a, b) => a.time - b.time).forEach(m => {
+      messageHtml += `
+        <div class="chat-message ${m.isAdmin ? 'admin' : 'user'}">
+          <div>
+            <div class="chat-bubble">${m.content}</div>
+            <div class="chat-timestamp">${formatTime(m.time)}</div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  root.innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo">
+            ${heroConfig.logo ? `<img src="${heroConfig.logo}" alt="Logo">` : '<i class="fas fa-images text-white text-lg"></i>'}
+          </div>
+          <h1 class="navbar-title">轻图社资源仓库</h1>
+        </div>
+        <button class="btn btn-secondary" onclick="go('#index')">
+          <i class="fas fa-arrow-left"></i>返回
+        </button>
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in" style="padding-bottom: 80px;">
+      <div class="card" style="padding: 1rem;">
+        <div class="chat-container" id="userChatContainer">
+          ${messageHtml}
+        </div>
+      </div>
+    </div>
+    
+    <div class="chat-input-container">
+      <input type="text" id="userMessageInput" class="chat-input" placeholder="发送消息给站主..." onkeydown="if(event.keyCode===13) sendUserMessage()">
+      <button class="btn" onclick="sendUserMessage()">
+        <i class="fas fa-paper-plane"></i>发送
+      </button>
+    </div>
+  `;
+  
+  setTimeout(() => scrollChatToBottom('userChatContainer'), 100);
+}
+
+// 用户订单页面
+function renderUserOrders(root, targetUserId = null) {
+  const heroConfig = getDB('heroConfig')[0] || { image: '', logo: '' };
+  const user = getCurrentUser();
+  
+  // 判断是查看自己的订单还是后台查看其他用户的订单
+  const isAdminView = targetUserId !== null && targetUserId !== '';
+  const orders = isAdminView 
+    ? getDB('orders').filter(o => o.userId === targetUserId)
+    : getUserOrders();
+  
+  const targetUser = isAdminView ? getDB('users').find(u => u.id === targetUserId) : null;
+  
+  let orderHtml = '';
+  
+  if (orders.length === 0) {
+    orderHtml = `<div class="empty-state"><i class="fas fa-shopping-cart"></i><p>暂无订单</p></div>`;
+  } else {
+    orders.forEach(o => {
+      orderHtml += `
+        <div class="order-item">
+          <div class="order-header">
+            <span class="order-id">订单号: ${o.id}</span>
+            <span class="order-status completed">已完成</span>
+          </div>
+          <div class="order-info">
+            <span class="order-product">${o.title}</span>
+            <span class="order-price">¥${o.price}</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+            ${formatTime(o.time)}
+          </div>
+          ${!isAdminView ? `
+            <div style="margin-top: 0.75rem;">
+              <p class="text-gray-400 text-sm mb-1">网盘链接：</p>
+              <p class="text-primary break-all text-sm">${o.link}</p>
+              ${o.extractCode ? `<p class="text-sm mt-1"><span class="text-gray-400">提取码：</span><span class="text-primary">${o.extractCode}</span></p>` : ''}
+              ${o.password ? `<p class="text-sm mt-1"><span class="text-gray-400">解压码：</span><span class="text-primary">${o.password}</span></p>` : ''}
+              <button class="copy-btn" style="margin-top: 0.75rem;" onclick="copyLink('${o.link}', this)">
+                <i class="fas fa-copy"></i>复制链接
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    });
+  }
+
+  root.innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo">
+            ${heroConfig.logo ? `<img src="${heroConfig.logo}" alt="Logo">` : '<i class="fas fa-images text-white text-lg"></i>'}
+          </div>
+          <h1 class="navbar-title">轻图社资源仓库</h1>
+        </div>
+        <button class="btn btn-secondary" onclick="${isAdminView ? 'go(\'#admin\')' : 'go(\'#profile\')'}">
+          <i class="fas fa-arrow-left"></i>返回
+        </button>
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+      ${isAdminView && targetUser ? `
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--color-card); border-radius: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="review-avatar">
+              ${targetUser.avatar ? `<img src="${targetUser.avatar}">` : '<i class="fas fa-user"></i>'}
+            </div>
+            <div>
+              <div style="font-weight: 600;">${targetUser.username}</div>
+              <div style="font-size: 0.875rem; color: var(--color-text-muted);">ID: ${targetUser.id}</div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+      ${orderHtml}
+    </div>
+  `;
+}
+
+// 个人主页页面
+function renderProfile(root) {
+  const user = getCurrentUser();
+  const heroConfig = getDB('heroConfig')[0] || { image: '', logo: '' };
+  const favorites = getDB('favorites') || [];
+  const userFavorites = favorites.filter(f => f.userId === user.id);
+  const albums = getDB('albums');
+  
+  const favAlbums = userFavorites.map(f => albums.find(a => a.id === f.albumId)).filter(Boolean);
+  
+  let favoritesHtml = '';
+  if (favAlbums.length === 0) {
+    favoritesHtml = `<div class="empty-state"><i class="fas fa-heart"></i><p>暂无收藏</p></div>`;
+  } else {
+    favoritesHtml = `
+      <div class="grid-gallery">
+        ${favAlbums.map((al, index) => `
+          <div class="card animate-slide-up" style="animation-delay: ${index * 0.1}s" onclick="openAlbum('${al.id}')">
+            <div class="card-image watermark">
+              <img src="${al.cover}" alt="${al.title}">
+              <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+              <p class="card-title">${al.title}</p>
+              <div class="flex items-center justify-between mt-2">
+                <span class="card-price">¥ ${al.price}</span>
+                <span class="text-gray-500 text-xs">${al.preview.length}张</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  root.innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo">
+            ${heroConfig.logo ? `<img src="${heroConfig.logo}" alt="Logo">` : '<i class="fas fa-images text-white text-lg"></i>'}
+          </div>
+          <h1 class="navbar-title">轻图社资源仓库</h1>
+        </div>
+        <button class="btn btn-secondary" onclick="go('#index')">
+          <i class="fas fa-arrow-left"></i>返回
+        </button>
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+      <!-- 用户信息卡片 -->
+      <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+          <div style="width: 8rem; height: 8rem; min-width: 8rem; min-height: 8rem; max-width: 8rem; max-height: 8rem; border-radius: 50%; background: var(--color-card-hover); overflow: hidden; border: 3px solid var(--color-primary); flex-shrink: 0;">
+            ${user.avatar ? `<img src="${user.avatar}" style="width: 100%; height: 100%; object-fit: cover; display: block;">` : '<i class="fas fa-user-circle" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 4rem; color: var(--color-text-muted);"></i>'}
+          </div>
+          <div style="flex: 1;">
+            <h2 style="font-size: 1.5rem; font-weight: 600;">${user.username}</h2>
+            <p style="color: var(--color-text-muted); margin-top: 0.25rem;">ID: ${user.id}</p>
+            <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+              <div>
+                <div style="font-size: 1.25rem; font-weight: 600;">${getUserOrders().length}</div>
+                <div style="font-size: 0.75rem; color: var(--color-text-muted);">订单数</div>
+              </div>
+              <div>
+                <div style="font-size: 1.25rem; font-weight: 600;">${userFavorites.length}</div>
+                <div style="font-size: 0.75rem; color: var(--color-text-muted);">收藏数</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 导航标签 -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="renderProfile(document.getElementById('root'))">
+          <i class="fas fa-heart"></i>我的收藏
+        </button>
+        <button class="tab-btn" onclick="go('#orders')">
+          <i class="fas fa-shopping-cart"></i>我的订单
+        </button>
+      </div>
+
+      <!-- 收藏列表 -->
+      ${favoritesHtml}
+    </div>
+  `;
+}
+
+function renderAdmin(root) {
+  if (!isAdmin()) {
+    go('#login');
+    return;
+  }
+
+  uploadedImages = [];
+
+  const albums = getDB('albums');
+  const messages = getDB('messages');
+  const orders = getDB('orders');
+  const paymentConfig = getDB('paymentConfig')[0] || { type: 'alipay', qrCode: '' };
+  const heroConfig = getDB('heroConfig')[0] || { image: '' };
+  const categories = getDB('categories');
+  const conversations = getConversations();
+  
+  // 计算未读消息数量（用户发送的消息，且没有被管理员回复的）
+  const unreadCount = messages.filter(m => !m.isAdmin && !m.read).length;
+  
+  // 确保有默认分类
+  if (categories.length === 0) {
+    setDB('categories', [{ id: 'home', name: '首页', sort: 0 }]);
+  }
+  
+  let listHtml = '';
+  let messageHtml = '';
+  let orderHtml = '';
+  let conversationHtml = '';
+  let categoryHtml = '';
+
+  if (albums.length === 0) {
+    listHtml = `<div class="empty-state"><i class="fas fa-inbox"></i><p>暂无图集</p></div>`;
+  } else {
+    listHtml = `
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <button class="btn btn-secondary" onclick="checkAllLinks()">
+          <i class="fas fa-check-circle"></i>检测全部链接
+        </button>
+      </div>
+    `;
+    albums.forEach(a => {
+      const linkStatus = a.linkStatus || 'normal';
+      const statusText = linkStatus === 'normal' ? '正常' : linkStatus === 'invalid' ? '失效' : '已取消分享';
+      listHtml += `
+        <div class="admin-item">
+          <div class="admin-item-info">
+            <div class="admin-item-title">${a.title}</div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="admin-item-price">¥${a.price} · ${a.preview.length}张</span>
+              <span class="link-status ${linkStatus}">
+                <i class="fas fa-link"></i>${statusText}
+              </span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" onclick="editAlbum('${a.id}')">
+              <i class="fas fa-edit"></i>编辑
+            </button>
+            <button class="btn btn-danger" onclick="del('${a.id}')">
+              <i class="fas fa-trash"></i>删除
+            </button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // 获取当前选中会话的消息
+  const selectedUserId = window.currentUserId || null;
+  const currentConversation = conversations.find(c => c.userId === selectedUserId);
+  const currentMessages = currentConversation ? messages.filter(m => m.userId === selectedUserId || m.isAdmin) : [];
+  
+  if (currentMessages.length === 0) {
+    messageHtml = selectedUserId ? `<div class="empty-state"><i class="fas fa-comments"></i><p>暂无消息</p></div>` : `<div class="empty-state"><i class="fas fa-comments"></i><p>请选择一个会话开始聊天</p></div>`;
+  } else {
+    currentMessages.sort((a, b) => a.time - b.time).forEach(m => {
+      messageHtml += `
+        <div class="chat-message ${m.isAdmin ? 'admin' : 'user'}">
+          <div>
+            <div class="chat-bubble">${m.content}</div>
+            <div class="chat-timestamp">${formatTime(m.time)}</div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // 会话列表
+  if (conversations.length === 0) {
+    conversationHtml = `<div class="empty-state"><i class="fas fa-users"></i><p>暂无用户消息</p></div>`;
+  } else {
+    conversations.forEach(c => {
+      conversationHtml += `
+        <div class="message-item ${c.userId === selectedUserId ? 'active' : ''}" onclick="selectConversation('${c.userId}')">
+          <div class="message-item-header">
+            <span class="message-item-name">${c.username}</span>
+            <span class="message-item-time">${formatTime(c.lastTime)}</span>
+          </div>
+          <div class="message-item-preview">${c.lastMessage}</div>
+        </div>
+      `;
+    });
+  }
+
+  if (orders.length === 0) {
+    orderHtml = `<div class="empty-state"><i class="fas fa-shopping-cart"></i><p>暂无订单</p></div>`;
+  } else {
+    orders.forEach(o => {
+      orderHtml += `
+        <div class="order-item">
+          <div class="order-header">
+            <span class="order-id">订单号: ${o.id}</span>
+            <span class="order-status completed">已完成</span>
+          </div>
+          <div class="order-info">
+            <span class="order-product">${o.title}</span>
+            <span class="order-price">¥${o.price}</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem;">
+            用户: ${o.username} · ${formatTime(o.time)}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // 分类列表
+  if (categories.length === 0) {
+    categoryHtml = `<div class="empty-state"><i class="fas fa-tags"></i><p>暂无分类</p></div>`;
+  } else {
+    categories.sort((a, b) => a.sort - b.sort).forEach((cat, index) => {
+      categoryHtml += `
+        <div class="category-item-row">
+          <button class="sort-btn" onclick="moveCategoryUp('${cat.id}')" ${index === 0 ? 'disabled' : ''}>↑</button>
+          <button class="sort-btn" onclick="moveCategoryDown('${cat.id}')" ${index === categories.length - 1 ? 'disabled' : ''}>↓</button>
+          <input type="text" value="${cat.name}" onchange="updateCategoryName('${cat.id}', this.value)">
+          <button onclick="deleteCategory('${cat.id}')" ${cat.id === 'home' ? 'disabled' : ''}><i class="fas fa-trash"></i></button>
+        </div>
+      `;
+    });
+  }
+
+  root.innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo"><i class="fas fa-cog text-white text-lg"></i></div>
+          <h1 class="navbar-title">管理后台</h1>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="go('#index')"><i class="fas fa-home"></i>前台</button>
+          <button class="btn btn-danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i>退出</button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchAdminTab('publish')">发布图集</button>
+        <button class="tab-btn" onclick="switchAdminTab('payment')">收款配置</button>
+        <button class="tab-btn" style="position: relative;" onclick="switchAdminTab('messages')">
+          站主私信
+          ${unreadCount > 0 ? `<span class="badge badge-red" style="position: absolute; top: -0.375rem; right: -0.375rem;">${unreadCount}</span>` : ''}
+        </button>
+        <button class="tab-btn" onclick="switchAdminTab('orders')">订单管理</button>
+        <button class="tab-btn" onclick="switchAdminTab('users')">用户管理</button>
+        <button class="tab-btn" onclick="switchAdminTab('hero')">首页装扮</button>
+        <button class="tab-btn" onclick="switchAdminTab('categories')">分类管理</button>
+        <button class="tab-btn" onclick="switchAdminTab('password')">修改密码</button>
+      </div>
+
+      <!-- 发布图集 -->
+      <div id="tab-publish" class="tab-content" style="display: block;">
+        <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <div style="width: 2.5rem; height: 2.5rem; background: rgba(124, 58, 237, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
+              <i class="fas fa-plus text-primary"></i>
+            </div>
+            <div>
+              <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">发布新图集</h3>
+              <p style="font-size: 0.875rem; color: var(--color-text-muted);">填写图集信息并发布</p>
+            </div>
+          </div>
+          
+          <input id="title" class="input-field" placeholder="图集名称">
+          <input id="price" class="input-field" placeholder="售价" value="9.9">
+          
+          <!-- 分类选择 -->
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-tags" style="margin-right: 0.25rem;"></i>选择分类
+            </label>
+            <select id="categorySelect" class="input-field" style="color: white;">
+              ${categories.filter(c => c.id !== 'home').map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-images" style="margin-right: 0.25rem;"></i>预览图片
+            </label>
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+              <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>
+              <p style="color: var(--color-text); font-size: 0.875rem;">点击或拖拽上传预览图</p>
+              <p style="color: var(--color-text-muted); font-size: 0.75rem; margin-top: 0.25rem;">支持 JPG、PNG、GIF 格式</p>
+              <input type="file" id="fileInput" multiple accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+            </div>
+            <div class="upload-preview" id="uploadPreview"></div>
+          </div>
+          
+          <input id="link" class="input-field" placeholder="网盘链接">
+          <input id="extractCode" class="input-field" placeholder="提取码（可选）">
+          <input id="password" class="input-field" placeholder="解压码（可选）">
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-file-alt" style="margin-right: 0.25rem;"></i>图集文案描述
+            </label>
+            <div style="border: 1px solid var(--color-border); border-radius: 0.5rem; overflow: hidden;">
+              <div style="display: flex; gap: 0.25rem; padding: 0.5rem; background: rgba(10,10,10,0.5); border-bottom: 1px solid var(--color-border); flex-wrap: wrap;">
+                <button type="button" class="editor-btn" onclick="execEditorCmd('justifyLeft')" title="左对齐"><i class="fas fa-align-left"></i></button>
+                <button type="button" class="editor-btn" onclick="execEditorCmd('justifyCenter')" title="居中"><i class="fas fa-align-center"></i></button>
+                <button type="button" class="editor-btn" onclick="execEditorCmd('justifyRight')" title="右对齐"><i class="fas fa-align-right"></i></button>
+                <span style="width: 1px; background: var(--color-border); margin: 0 0.25rem;"></span>
+                <button type="button" class="editor-btn" onclick="execEditorCmd('bold')" title="加粗"><i class="fas fa-bold"></i></button>
+                <button type="button" class="editor-btn" onclick="execEditorCmd('insertUnorderedList')" title="无序列表"><i class="fas fa-list-ul"></i></button>
+                <span style="width: 1px; background: var(--color-border); margin: 0 0.25rem;"></span>
+                <button type="button" class="editor-btn" onclick="insertEmoji('😊')" title="表情">😊</button>
+                <button type="button" class="editor-btn" onclick="insertEmoji('🔥')" title="表情">🔥</button>
+                <button type="button" class="editor-btn" onclick="insertEmoji('⭐')" title="表情">⭐</button>
+                <button type="button" class="editor-btn" onclick="insertEmoji('❤️')" title="表情">❤️</button>
+                <button type="button" class="editor-btn" onclick="showEmojiPicker()" title="更多表情"><i class="fas fa-smile"></i></button>
+              </div>
+              <div id="descriptionEditor" contenteditable="true" style="min-height: 120px; max-height: 300px; overflow-y: auto; padding: 0.75rem 1rem; color: var(--color-text); font-size: 0.875rem; line-height: 1.6; outline: none; background: rgba(10,10,10,0.3);" oninput="updateCharCount()"></div>
+              <div style="padding: 0.375rem 0.75rem; background: rgba(10,10,10,0.5); border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.75rem; color: var(--color-text-muted);">支持换行、对齐、表情</span>
+                <span id="charCount" style="font-size: 0.75rem; color: var(--color-text-muted);">0/1000</span>
+              </div>
+            </div>
+            <input type="hidden" id="description" value="">
+          </div>
+          
+          <button class="btn" style="width: 100%; padding: 0.875rem;" onclick="add()">
+            <i class="fas fa-cloud-upload-alt"></i>发布图集
+          </button>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1rem;">
+            <i class="fas fa-list text-primary" style="margin-right: 0.5rem;"></i>图集列表
+          </h3>
+          ${listHtml}
+        </div>
+      </div>
+
+      <!-- 收款配置 -->
+      <div id="tab-payment" class="tab-content" style="display: none;">
+        <div class="card" style="padding: 1.5rem;">
+          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
+            <i class="fas fa-qrcode text-primary" style="margin-right: 0.5rem;"></i>收款配置
+          </h3>
+          
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">选择收款方式</label>
+            <div class="payment-config">
+              <div class="payment-option ${paymentConfig.type === 'alipay' ? 'active' : ''} alipay" onclick="selectPayment('alipay')">
+                <i class="fab fa-alipay"></i>
+                <span>支付宝</span>
+              </div>
+              <div class="payment-option ${paymentConfig.type === 'wechat' ? 'active' : ''} wechat" onclick="selectPayment('wechat')">
+                <i class="fab fa-weixin"></i>
+                <span>微信支付</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">收款码图片</label>
+            <div class="upload-area" id="qrUploadArea" onclick="document.getElementById('qrFileInput').click()">
+              ${paymentConfig.qrCode ? `<img src="${paymentConfig.qrCode}" style="max-width: 150px; max-height: 150px; margin-bottom: 0.5rem;">` : `<i class="fas fa-upload" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>`}
+              <p style="color: var(--color-text); font-size: 0.875rem;">${paymentConfig.qrCode ? '点击更换收款码' : '点击上传收款码'}</p>
+            </div>
+            <input type="file" id="qrFileInput" accept="image/*" style="display: none;" onchange="handleQrUpload(event)">
+          </div>
+          
+          <button class="btn" style="width: 100%;" onclick="savePaymentConfig()">
+            <i class="fas fa-save"></i>保存配置
+          </button>
+        </div>
+      </div>
+
+      <!-- 站主私信 -->
+      <div id="tab-messages" class="tab-content" style="display: none;">
+        <div class="card" style="padding: 1.5rem; display: flex; gap: 1rem;">
+          <!-- 会话列表 -->
+          <div style="width: 280px; flex-shrink: 0;">
+            <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1rem;">
+              <i class="fas fa-users text-primary" style="margin-right: 0.5rem;"></i>用户列表
+            </h3>
+            <div class="message-list">
+              ${conversationHtml}
+            </div>
+          </div>
+          
+          <!-- 聊天区域 -->
+          <div style="flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1rem;">
+              <i class="fas fa-comments text-primary" style="margin-right: 0.5rem;"></i>
+              ${selectedUserId ? conversations.find(c => c.userId === selectedUserId)?.username : '私信聊天'}
+            </h3>
+            
+            <div class="chat-container" id="adminChatContainer">
+              ${messageHtml}
+            </div>
+            
+            ${selectedUserId ? `
+            <div class="chat-input-container">
+              <input type="text" id="adminReply" class="chat-input" placeholder="回复用户消息..." onkeydown="if(event.keyCode===13) sendAdminReplyToUser()">
+              <button class="btn" onclick="sendAdminReplyToUser()">
+                <i class="fas fa-paper-plane"></i>发送
+              </button>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- 订单管理 -->
+      <div id="tab-orders" class="tab-content" style="display: none;">
+        <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
+          <i class="fas fa-shopping-cart text-primary" style="margin-right: 0.5rem;"></i>订单列表
+        </h3>
+        ${orderHtml}
+      </div>
+
+      <!-- 用户管理 -->
+      <div id="tab-users" class="tab-content" style="display: none;">
+        <div class="card" style="padding: 1.5rem;">
+          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
+            <i class="fas fa-users text-primary" style="margin-right: 0.5rem;"></i>用户管理
+          </h3>
+          
+          <div class="admin-table">
+            <div class="admin-table-header">
+              <div>用户头像</div>
+              <div>用户账号</div>
+              <div>订单数</div>
+              <div>注册时间</div>
+            </div>
+            ${(() => {
+              const users = getDB('users');
+              if (users.length === 0) {
+                return `<div class="empty-state"><i class="fas fa-users"></i><p>暂无注册用户</p></div>`;
+              }
+              return users.map(user => {
+                const userOrders = orders.filter(o => o.userId === user.id);
+                return `
+                  <div class="admin-table-row">
+                    <div style="display: flex; align-items: center;">
+                      <div style="width: 2.5rem; height: 2.5rem; min-width: 2.5rem; min-height: 2.5rem; max-width: 2.5rem; max-height: 2.5rem; border-radius: 50%; background: var(--color-card-hover); overflow: hidden; flex-shrink: 0;">
+                        ${user.avatar ? `<img src="${user.avatar}" style="width: 100%; height: 100%; object-fit: cover; display: block;">` : '<i class="fas fa-user" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--color-text-muted);"></i>'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style="font-weight: 500;">${user.username}</div>
+                      <div style="font-size: 0.75rem; color: var(--color-text-muted);">ID: ${user.id}</div>
+                    </div>
+                    <div>
+                      <button class="btn btn-primary btn-sm" onclick="go('#userOrders=${user.id}')">
+                        <i class="fas fa-shopping-cart"></i> ${userOrders.length}
+                      </button>
+                    </div>
+                    <div style="color: var(--color-text-muted); font-size: 0.875rem;">${formatTime(user.registerTime)}</div>
+                  </div>
+                `;
+              }).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+
+      <!-- 首页装扮 -->
+      <div id="tab-hero" class="tab-content" style="display: none;">
+        <div class="card" style="padding: 1.5rem;">
+          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
+            <i class="fas fa-image text-primary" style="margin-right: 0.5rem;"></i>首页装扮设置
+          </h3>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Logo图标（顶部导航栏左侧图标）</label>
+            <div class="upload-area" id="logoUploadArea" onclick="document.getElementById('logoFileInput').click()">
+              ${heroConfig.logo ? `<img src="${heroConfig.logo}" style="max-width: 80px; max-height: 80px; margin-bottom: 0.5rem;">` : `<i class="fas fa-upload" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>`}
+              <p style="color: var(--color-text); font-size: 0.875rem;">${heroConfig.logo ? '点击更换Logo' : '点击上传Logo图片'}</p>
+            </div>
+            <input type="file" id="logoFileInput" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">首页横幅图片</label>
+            <div class="upload-area" id="heroUploadArea" onclick="document.getElementById('heroFileInput').click()">
+              ${heroConfig.image ? `<img src="${heroConfig.image}" style="max-width: 200px; max-height: 100px; margin-bottom: 0.5rem;">` : `<i class="fas fa-upload" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>`}
+              <p style="color: var(--color-text); font-size: 0.875rem;">${heroConfig.image ? '点击更换横幅' : '点击上传横幅图片'}</p>
+            </div>
+            <input type="file" id="heroFileInput" accept="image/*" style="display: none;" onchange="handleHeroUpload(event)">
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">底部轮播横幅（最多3张，自动轮播）</label>
+            <div class="banner-upload-area">
+              ${(heroConfig.banners || []).map((banner, index) => `
+                <div class="banner-upload-item">
+                  <img src="${banner}" style="max-width: 150px; max-height: 80px; margin-bottom: 0.5rem;">
+                  <button class="btn btn-danger btn-sm" onclick="removeBanner(${index})">删除</button>
+                </div>
+              `).join('')}
+              ${(heroConfig.banners || []).length < 3 ? `
+                <div class="upload-area" id="bannerUploadArea" onclick="document.getElementById('bannerFileInput').click()">
+                  <i class="fas fa-plus" style="font-size: 1.5rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>
+                  <p style="color: var(--color-text); font-size: 0.875rem;">添加横幅图片</p>
+                  <p style="color: var(--color-text-muted); font-size: 0.75rem;">还可添加 ${3 - (heroConfig.banners || []).length} 张</p>
+                </div>
+              ` : ''}
+            </div>
+            <input type="file" id="bannerFileInput" accept="image/*" style="display: none;" onchange="handleBannerUpload(event)">
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-copyright" style="margin-right: 0.25rem;"></i>版权备案信息
+            </label>
+            <input id="copyrightInput" class="input-field" placeholder="如：© 2024 轻图社 版权所有 | 京ICP备XXXXXXXX号" value="${heroConfig.copyright || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-file-contract" style="margin-right: 0.25rem;"></i>备案号
+            </label>
+            <input id="filingInput" class="input-field" placeholder="如：京ICP备XXXXXXXX号-1" value="${heroConfig.filing || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-shield-alt" style="margin-right: 0.25rem;"></i>网络安全提示
+            </label>
+            <input id="securityInput" class="input-field" placeholder="如：本站内容仅供学习交流，严禁用于商业用途" value="${heroConfig.security || ''}">
+          </div>
+          
+          <button class="btn" style="width: 100%;" onclick="saveHeroConfig()">
+            <i class="fas fa-save"></i>保存配置
+          </button>
+        </div>
+      </div>
+
+      <!-- 分类管理 -->
+      <div id="tab-categories" class="tab-content" style="display: none;">
+        <div class="card" style="padding: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">
+              <i class="fas fa-tags text-primary" style="margin-right: 0.5rem;"></i>分类管理
+            </h3>
+            <button class="btn" onclick="addCategory()">
+              <i class="fas fa-plus"></i>添加分类
+            </button>
+          </div>
+          
+          <div class="category-list">
+            ${categoryHtml}
+          </div>
+        </div>
+      </div>
+
+      <!-- 修改密码 -->
+      <div id="tab-password" class="tab-content" style="display: none;">
+        <div class="card" style="padding: 1.5rem; max-width: 400px;">
+          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
+            <i class="fas fa-key text-primary" style="margin-right: 0.5rem;"></i>修改管理员密码
+          </h3>
+          
+          <input id="oldPwd" type="password" class="input-field" placeholder="原密码">
+          <input id="newPwd" type="password" class="input-field" placeholder="新密码">
+          <input id="confirmPwd" type="password" class="input-field" placeholder="确认新密码">
+          
+          <button class="btn" style="width: 100%; margin-top: 1rem;" onclick="changeAdminPassword()">
+            <i class="fas fa-save"></i>保存修改
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  setTimeout(() => {
+    initDragUpload();
+    scrollChatToBottom('adminChatContainer');
+  }, 0);
+}
+
+// ==========================================
+// 功能函数
+// ==========================================
+// 当前选择的支付方式
+let selectedPaymentType = 'alipay';
+let qrCodeData = '';
+function go(hash) {
+  // 清理下拉菜单状态
+  const dropdown = document.getElementById('userDropdown');
+  const toggleBtn = document.querySelector('.user-dropdown-toggle');
+  if (dropdown) dropdown.classList.remove('show');
+  if (toggleBtn) toggleBtn.classList.remove('active');
+  
+  // 清理链接状态弹窗
+  const linkModal = document.getElementById('linkStatusModal');
+  if (linkModal) linkModal.remove();
+  
+  window.location.hash = hash;
+  renderPage();
+}
+
+function openAlbum(id) {
+  go('#detail=' + id);
+}
+
+function searchAlbums() {
+  const input = document.getElementById('searchInput');
+  const keyword = input ? input.value.trim() : '';
+  if (!keyword) {
+    renderIndex(document.getElementById('root'), window.currentCategoryId || '');
+    return;
+  }
+  
+  const albums = getDB('albums');
+  const results = albums.filter(a => 
+    a.title.toLowerCase().includes(keyword.toLowerCase()) ||
+    (a.description && a.description.replace(/<[^>]*>/g, '').toLowerCase().includes(keyword.toLowerCase()))
+  );
+  
+  const root = document.getElementById('root');
+  const heroConfig = getDB('heroConfig')[0] || { image: '', logo: '' };
+  const user = getCurrentUser();
+  const reviews = getDB('reviews') || [];
+  const favorites = getDB('favorites') || [];
+  const userOrders = user ? getDB('orders').filter(o => o.userId === user.id) : [];
+  const purchasedAlbumIds = new Set(userOrders.map(o => o.albumId));
+  
+  let resultsHtml = '';
+  if (results.length === 0) {
+    resultsHtml = `<div class="empty-state"><i class="fas fa-search"></i><p>未找到与"${keyword}"相关的图集</p></div>`;
+  } else {
+    resultsHtml = `
+      <div class="grid-gallery">
+        ${results.map((al, index) => {
+          const albumReviews = reviews.filter(r => r.albumId === al.id);
+          const favCount = favorites.filter(f => f.albumId === al.id).length;
+          const canReview = purchasedAlbumIds.has(al.id);
+          return `
+            <div class="card animate-slide-up" style="animation-delay: ${index * 0.1}s" onclick="openAlbum('${al.id}')">
+              <div class="card-image watermark">
+                <img src="${al.cover}" alt="${al.title}">
+                <div class="card-overlay"></div>
+              </div>
+              <div class="card-content">
+                <p class="card-title">${al.title}</p>
+                <div class="flex items-center justify-between mt-2">
+                  <span class="card-price">¥ ${al.price}</span>
+                  <span class="text-gray-500 text-xs">${al.preview.length}张</span>
+                </div>
+                <div class="card-review mt-2">
+                  <span onclick="event.stopPropagation(); openReview('${al.id}', ${canReview})" style="cursor:pointer;">
+                    <i class="fas fa-comment"></i>
+                    <span>${albumReviews.length}</span>
+                  </span>
+                  <span style="margin-left: 0.75rem;">
+                    <i class="fas fa-heart"></i>
+                    <span>${favCount}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+  
+  const categories = getDB('categories');
+  categories.sort((a, b) => a.sort - b.sort);
+  let categoryHtml = categories.map(cat => `
+    <div class="category-item" onclick="switchCategory('${cat.id}')">
+      ${cat.name}
+    </div>
+  `).join('');
+  
+  root.innerHTML = `
+    <nav class="navbar">
+      <div class="navbar-content">
+        <div class="navbar-brand">
+          <div class="navbar-logo">
+            ${heroConfig.logo ? `<img src="${heroConfig.logo}" alt="Logo">` : '<i class="fas fa-images text-white text-lg"></i>'}
+          </div>
+          <h1 class="navbar-title">轻图社资源仓库</h1>
+        </div>
+        ${user ? `
+          <div class="user-dropdown">
+            <button class="user-dropdown-trigger" onclick="toggleUserMenu()">
+              <div style="width: 2rem; height: 2rem; min-width: 2rem; min-height: 2rem; border-radius: 50%; background: var(--color-card-hover); overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-user" style="color: var(--color-text-muted); font-size: 0.75rem;"></i>
+              </div>
+              <span style="color: var(--color-text); font-size: 0.875rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.username}</span>
+              <i class="fas fa-chevron-down" style="font-size: 0.625rem; color: var(--color-text-muted);"></i>
+            </button>
+            <div class="dropdown-menu" id="userDropdown">
+              <div class="dropdown-item" onclick="go('#profile')"><i class="fas fa-user-circle"></i>个人主页</div>
+              <div class="dropdown-item" onclick="showNicknameModal()"><i class="fas fa-edit"></i>修改昵称</div>
+              <div class="dropdown-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i>退出登录</div>
+            </div>
+          </div>
+        ` : `
+          <button class="btn btn-secondary" onclick="go('#register')">
+            <i class="fas fa-user-plus"></i>注册/登录
+          </button>
+        `}
+      </div>
+    </nav>
+
+    <div class="container animate-fade-in">
+      <div class="category-nav">
+        ${categoryHtml}
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h2 class="page-title" style="margin-bottom: 0.25rem;">搜索结果</h2>
+          <p class="page-subtitle">关键词"${keyword}"，找到 ${results.length} 个图集</p>
+        </div>
+        <div style="position: relative;">
+          <input type="text" id="searchInput" class="input-field" placeholder="搜索图集..." style="margin-bottom: 0; padding-right: 2.5rem; width: 220px;" value="${keyword}" onkeydown="if(event.keyCode===13) searchAlbums()">
+          <button onclick="searchAlbums()" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-primary); cursor: pointer; padding: 0.25rem;">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+      </div>
+
+      ${resultsHtml}
+      
+      <footer style="text-align: center; padding: 2rem 1rem 1.5rem; margin-top: 2rem; border-top: 1px solid var(--color-border);">
+        <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">
+          ${heroConfig.copyright || '© 2024 轻图社 版权所有'}
+        </p>
+        ${heroConfig.filing ? `<p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">${heroConfig.filing}</p>` : ''}
+        ${heroConfig.security ? `<p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">${heroConfig.security}</p>` : ''}
+      </footer>
+    </div>
+  `;
+}
+
+function toggleFavorite(albumId) {
+  const user = getCurrentUser();
+  if (!user) {
+    alert('请先登录后再收藏');
+    return;
+  }
+  
+  const favorites = getDB('favorites') || [];
+  const existingIndex = favorites.findIndex(f => f.albumId === albumId && f.userId === user.id);
+  
+  if (existingIndex !== -1) {
+    favorites.splice(existingIndex, 1);
+    setDB('favorites', favorites);
+  } else {
+    favorites.push({
+      albumId,
+      userId: user.id,
+      username: user.username,
+      time: Date.now()
+    });
+    setDB('favorites', favorites);
+  }
+  
+  renderDetail(document.getElementById('root'), albumId);
+}
+
+function showLink() {
+  const linkBox = document.getElementById('linkBox');
+  if (linkBox) {
+    linkBox.classList.add('show');
+  }
+}
+
+function login() {
+  const u = document.getElementById('user').value;
+  const p = document.getElementById('pwd').value;
+  const rememberMe = document.getElementById('rememberMe')?.checked || false;
+  
+  const adminConfig = getDB('adminConfig')[0] || { username: 'admin', password: '123456' };
+  
+  if (u === adminConfig.username && p === adminConfig.password) {
+    localStorage.setItem('admin', 'ok');
+    localStorage.setItem('adminRemember', rememberMe ? 'true' : 'false');
+    localStorage.setItem('adminId', '6688');
+    go('#admin');
+  } else {
+    alert('账号或密码错误');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('admin');
+  localStorage.removeItem('adminId');
+  go('#login');
+}
+
+// 修改管理员密码
+function changeAdminPassword() {
+  const oldPwd = document.getElementById('oldPwd').value;
+  const newPwd = document.getElementById('newPwd').value;
+  const confirmPwd = document.getElementById('confirmPwd').value;
+  
+  if (!oldPwd || !newPwd || !confirmPwd) {
+    alert('请填写完整信息');
+    return;
+  }
+  
+  if (newPwd !== confirmPwd) {
+    alert('两次输入的新密码不一致');
+    return;
+  }
+  
+  if (newPwd.length < 6) {
+    alert('密码长度不能少于6位');
+    return;
+  }
+  
+  const adminConfig = getDB('adminConfig')[0] || { username: 'admin', password: '123456' };
+  
+  if (oldPwd !== adminConfig.password) {
+    alert('原密码错误');
+    return;
+  }
+  
+  adminConfig.password = newPwd;
+  setDB('adminConfig', [adminConfig]);
+  
+  alert('密码修改成功，请重新登录');
+  logout();
+}
+
+// 存储上传的图片数据
+let uploadedImages = [];
+
+// ==========================================
+// 后台选项卡切换
+// ==========================================
+function switchAdminTab(tabName) {
+  // 切换按钮状态
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick="switchAdminTab('${tabName}')"]`).classList.add('active');
+  
+  // 切换内容显示
+  document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+  document.getElementById(`tab-${tabName}`).style.display = 'block';
+  
+  // 如果是消息页面，滚动到底部并标记消息为已读
+  if (tabName === 'messages') {
+    markMessagesAsRead();
+    setTimeout(() => scrollChatToBottom('adminChatContainer'), 100);
+  }
+}
+
+// 标记消息为已读
+function markMessagesAsRead() {
+  const messages = getDB('messages');
+  const updatedMessages = messages.map(m => ({ ...m, read: true }));
+  setDB('messages', updatedMessages);
+  // 更新未读消息徽章显示
+  const badge = document.querySelector('.badge-red');
+  if (badge) {
+    badge.style.display = 'none';
+  }
+}
+
+// ==========================================
+// 收款配置功能
+// ==========================================
+function selectPayment(type) {
+  selectedPaymentType = type;
+  document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('active'));
+  document.querySelector(`.payment-option.${type}`).classList.add('active');
+}
+
+function handleQrUpload(event) {
+  const file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    qrCodeData = e.target.result;
+    const uploadArea = document.getElementById('qrUploadArea');
+    uploadArea.innerHTML = `
+      <img src="${qrCodeData}" style="max-width: 150px; max-height: 150px; margin-bottom: 0.5rem;">
+      <p style="color: var(--color-text); font-size: 0.875rem;">点击更换收款码</p>
+    `;
+  };
+  reader.readAsDataURL(file);
+}
+
+function savePaymentConfig() {
+  if (!qrCodeData) {
+    alert('请先上传收款码图片');
+    return;
+  }
+  
+  const config = {
+    type: selectedPaymentType,
+    qrCode: qrCodeData
+  };
+  
+  setDB('paymentConfig', [config]);
+  alert('收款配置保存成功！');
+}
+
+// ==========================================
+// 聊天功能
+// ==========================================
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function scrollChatToBottom(containerId) {
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function sendAdminReply() {
+  const input = document.getElementById('adminReply');
+  const content = input.value.trim();
+  
+  if (!content) return;
+  
+  const message = {
+    id: Date.now().toString(),
+    content,
+    time: Date.now(),
+    isAdmin: true
+  };
+  
+  const messages = getDB('messages');
+  messages.push(message);
+  setDB('messages', messages);
+  
+  input.value = '';
+  
+  // 更新消息列表
+  const container = document.getElementById('adminChatContainer');
+  container.innerHTML += `
+    <div class="chat-message admin">
+      <div>
+        <div class="chat-bubble">${content}</div>
+        <div class="chat-timestamp">${formatTime(Date.now())}</div>
+      </div>
+    </div>
+  `;
+  
+  scrollChatToBottom('adminChatContainer');
+}
+
+// 用户发送消息
+function sendUserMessage() {
+  const input = document.getElementById('userMessageInput');
+  const content = input.value.trim();
+  
+  if (!content) return;
+  
+  const message = {
+    id: Date.now().toString(),
+    content,
+    time: Date.now(),
+    isAdmin: false,
+    username: getCurrentUser()?.username || '游客',
+    read: false
+  };
+  
+  const messages = getDB('messages');
+  messages.push(message);
+  setDB('messages', messages);
+  
+  input.value = '';
+  
+  const container = document.getElementById('userChatContainer');
+  container.innerHTML += `
+    <div class="chat-message user">
+      <div>
+        <div class="chat-bubble">${content}</div>
+        <div class="chat-timestamp">${formatTime(Date.now())}</div>
+      </div>
+    </div>
+  `;
+  
+  scrollChatToBottom('userChatContainer');
+}
+
+// ==========================================
+// 用户注册登录功能
+// ==========================================
+function getCurrentUser() {
+  const userData = localStorage.getItem('user');
+  return userData ? JSON.parse(userData) : null;
+}
+
+function isUserLoggedIn() {
+  return !!localStorage.getItem('user');
+}
+
+function getNextUserId() {
+  const users = getDB('users');
+  if (users.length === 0) return '1001';
+  const maxId = Math.max(...users.map(u => parseInt(u.id) || 1000));
+  return (maxId + 1).toString();
+}
+
+function registerUser() {
+  const username = document.getElementById('regUsername').value.trim();
+  const password = document.getElementById('regPassword').value.trim();
+  const confirmPwd = document.getElementById('regConfirm').value.trim();
+  
+  if (!username || !password) {
+    alert('请填写账号和密码');
+    return;
+  }
+  
+  if (password !== confirmPwd) {
+    alert('两次密码不一致');
+    return;
+  }
+  
+  const users = getDB('users');
+  const exists = users.find(u => u.username === username);
+  
+  if (exists) {
+    alert('账号已存在');
+    return;
+  }
+  
+  const newId = getNextUserId();
+  
+  users.push({
+    id: newId,
+    username,
+    password,
+    registerTime: Date.now()
+  });
+  
+  setDB('users', users);
+  alert('注册成功，请登录');
+  switchAuthTab('login');
+}
+
+function userLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const rememberMe = document.getElementById('rememberMe')?.checked;
+  
+  const users = getDB('users');
+  const user = users.find(u => u.username === username && u.password === password);
+  
+  if (user) {
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    if (rememberMe) {
+      localStorage.setItem('savedUserCredentials', JSON.stringify({ username, password }));
+    } else {
+      localStorage.removeItem('savedUserCredentials');
+    }
+    
+    alert('登录成功');
+    go('#index');
+  } else {
+    alert('账号或密码错误');
+  }
+}
+
+function userLogout() {
+  localStorage.removeItem('user');
+  go('#index');
+}
+
+// 切换下拉菜单显示/隐藏
+function toggleDropdown(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('userDropdown');
+  const toggleBtn = document.querySelector('.user-dropdown-toggle');
+  
+  if (dropdown) {
+    dropdown.classList.toggle('show');
+    toggleBtn.classList.toggle('active');
+  }
+  
+  // 点击其他地方关闭下拉菜单
+  document.addEventListener('click', function closeDropdown(evt) {
+    const target = evt.target;
+    if (!target.closest('.dropdown')) {
+      if (dropdown) dropdown.classList.remove('show');
+      if (toggleBtn) toggleBtn.classList.remove('active');
+      document.removeEventListener('click', closeDropdown);
+    }
+  });
+}
+
+// 修改昵称
+function changeNickname() {
+  const user = getCurrentUser();
+  if (!user) {
+    alert('请先登录');
+    return;
+  }
+  
+  const newNickname = prompt('请输入新昵称:', user.username);
+  if (newNickname && newNickname.trim()) {
+    const trimmedName = newNickname.trim();
+    if (trimmedName.length > 20) {
+      alert('昵称不能超过20个字符');
+      return;
+    }
+    user.username = trimmedName;
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    const users = getDB('users');
+    const dbUser = users.find(u => u.id === user.id);
+    if (dbUser) {
+      dbUser.username = trimmedName;
+      setDB('users', users);
+    }
+    
+    alert('昵称修改成功！');
+    renderPage();
+  }
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.auth-tab[onclick="switchAuthTab('${tab}')"]`).classList.add('active');
+  
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+}
+
+// ==========================================
+// 订单记录功能
+// ==========================================
+function createOrder(album) {
+  const user = getCurrentUser();
+  if (!user) {
+    alert('请先登录');
+    go('#auth');
+    return;
+  }
+  
+  const order = {
+    id: Date.now().toString(),
+    userId: user.id,
+    username: user.username,
+    albumId: album.id,
+    title: album.title,
+    price: album.price,
+    link: album.link,
+    time: Date.now(),
+    status: 'completed'
+  };
+  
+  const orders = getDB('orders');
+  orders.push(order);
+  setDB('orders', orders);
+  
+  return order;
+}
+
+function getUserOrders() {
+  const user = getCurrentUser();
+  if (!user) return [];
+  
+  return getDB('orders').filter(o => o.userId === user.id);
+}
+
+// 图片压缩函数
+function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      
+      // 计算缩放比例
+      if (width > maxWidth) {
+        height = (height * maxWidth) / width;
+        width = maxWidth;
+      }
+      if (height > maxHeight) {
+        width = (width * maxHeight) / height;
+        height = maxHeight;
+      }
+      
+      // 创建画布
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // 转换为 Base64
+      const compressedDataUrl = canvas.toDataURL(file.type, quality);
+      resolve(compressedDataUrl);
+    };
+    img.onerror = () => {
+      // 如果压缩失败，使用原始数据
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// 处理文件选择
+async function handleFileSelect(event) {
+  const files = Array.from(event.target.files);
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    
+    try {
+      const compressedData = await compressImage(file);
+      uploadedImages.push(compressedData);
+      renderPreview();
+    } catch (error) {
+      console.error('图片处理失败:', error);
+      alert('图片处理失败，请重试');
+    }
+  }
+}
+
+// 渲染预览图
+function renderPreview() {
+  const container = document.getElementById('uploadPreview');
+  if (!container) return;
+  
+  container.innerHTML = uploadedImages.map((src, index) => `
+    <div class="preview-item">
+      <img src="${src}" alt="预览图 ${index + 1}">
+      <button type="button" class="remove-btn" onclick="removeImage(${index})">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+// 删除图片
+function removeImage(index) {
+  uploadedImages.splice(index, 1);
+  renderPreview();
+}
+
+// 拖拽上传
+function initDragUpload() {
+  const uploadArea = document.getElementById('uploadArea');
+  if (!uploadArea) return;
+  
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+  });
+  
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+  });
+  
+  uploadArea.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    
+    const files = Array.from(e.dataTransfer.files);
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      
+      try {
+        const compressedData = await compressImage(file);
+        uploadedImages.push(compressedData);
+        renderPreview();
+      } catch (error) {
+        console.error('图片处理失败:', error);
+        alert('图片处理失败，请重试');
+      }
+    }
+  });
+}
+
+function add() {
+  const title = document.getElementById('title').value.trim();
+  const price = document.getElementById('price').value.trim();
+  const link = document.getElementById('link').value.trim();
+  const extractCode = document.getElementById('extractCode').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const categorySelect = document.getElementById('categorySelect');
+  const categoryId = categorySelect ? categorySelect.value : '';
+  const descriptionEditor = document.getElementById('descriptionEditor');
+  const description = descriptionEditor ? descriptionEditor.innerHTML.trim() : '';
+  
+  if (!title || !price || !link) {
+    alert('请填写完整信息');
+    return;
+  }
+  
+  if (uploadedImages.length < 1) {
+    alert('请至少上传一张预览图');
+    return;
+  }
+
+  const list = getDB('albums');
+  const editingId = window.editingAlbumId;
+  
+  if (editingId) {
+    const index = list.findIndex(a => a.id === editingId);
+    if (index !== -1) {
+      list[index] = {
+        ...list[index],
+        title,
+        price,
+        link,
+        extractCode,
+        password,
+        description,
+        preview: uploadedImages,
+        cover: uploadedImages[0],
+        categoryId
+      };
+      setDB('albums', list);
+      uploadedImages = [];
+      window.editingAlbumId = null;
+      alert('更新成功！');
+      renderPage();
+    }
+  } else {
+    list.unshift({
+      id: Date.now().toString(),
+      title,
+      price,
+      link,
+      extractCode,
+      password,
+      description,
+      preview: uploadedImages,
+      cover: uploadedImages[0],
+      categoryId,
+      linkStatus: 'normal'
+    });
+    
+    setDB('albums', list);
+    uploadedImages = [];
+    alert('发布成功！');
+    renderPage();
+  }
+}
+
+function execEditorCmd(cmd) {
+  document.execCommand(cmd, false, null);
+  document.getElementById('descriptionEditor').focus();
+}
+
+function insertEmoji(emoji) {
+  document.execCommand('insertText', false, emoji);
+  document.getElementById('descriptionEditor').focus();
+  updateCharCount();
+}
+
+function showEmojiPicker() {
+  const emojis = ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','⭐','🌟','✨','⚡','🔥','💥','🎵','🎶','💫','🌸','🌺','🌻','🌹','🌷','💐','🍄','🌰','🎃','🎄','🎋','🎉','🎊','🎈','🎁','🎀','🏆','🥇','🥈','🥉','⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🎱','🏓','🏸','🥅','🏒','🏑','🏏','🥍','🥏','🎴','🎭','🖼️','🎨','🧵','🧶','👑','💍','💎','🔔','🔕','📯','🔇','🔈','🔉','🔊','📣','📢','👁️‍🗨️','💬','💭','🗯️','♠️','♣️','♥️','♦️','🃏','🎴','🀄','🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'];
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay show';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 360px;">
+      <div class="modal-header">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+          <i class="fas fa-times"></i>
+        </button>
+        <h3><i class="fas fa-smile"></i> 选择表情</h3>
+      </div>
+      <div class="modal-body" style="max-height: 300px; overflow-y: auto; padding: 0.5rem;">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+          ${emojis.map(e => `<button style="width: 2rem; height: 2rem; font-size: 1.1rem; background: none; border: none; cursor: pointer; border-radius: 0.25rem; transition: background 0.15s;" onmouseover="this.style.background='rgba(124,58,237,0.2)'" onmouseout="this.style.background='none'" onclick="insertEmoji('${e}'); this.closest('.modal-overlay').remove();">${e}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function updateCharCount() {
+  const editor = document.getElementById('descriptionEditor');
+  const count = editor ? (editor.innerText || '').length : 0;
+  const countEl = document.getElementById('charCount');
+  if (countEl) {
+    countEl.textContent = `${count}/1000`;
+    countEl.style.color = count > 1000 ? '#ef4444' : 'var(--color-text-muted)';
+  }
+}
+
+function del(id) {
+  if (!confirm('确定删除此图集？')) return;
+  
+  const list = getDB('albums').filter(a => a.id !== id);
+  setDB('albums', list);
+  renderPage();
+}
+
+// 编辑图集
+function editAlbum(id) {
+  const albums = getDB('albums');
+  const album = albums.find(a => a.id === id);
+  
+  if (!album) {
+    alert('未找到该图集');
+    return;
+  }
+  
+  // 填充表单
+  document.getElementById('title').value = album.title;
+  document.getElementById('price').value = album.price;
+  document.getElementById('link').value = album.link;
+  
+  if (document.getElementById('extractCode')) {
+    document.getElementById('extractCode').value = album.extractCode || '';
+  }
+  if (document.getElementById('password')) {
+    document.getElementById('password').value = album.password || '';
+  }
+  if (document.getElementById('categorySelect')) {
+    document.getElementById('categorySelect').value = album.categoryId || '';
+  }
+  const descEditor = document.getElementById('descriptionEditor');
+  if (descEditor) {
+    descEditor.innerHTML = album.description || '';
+    updateCharCount();
+  }
+  
+  // 显示已有预览图
+  uploadedImages = [...album.preview];
+  const previewDiv = document.getElementById('uploadPreview');
+  previewDiv.innerHTML = album.preview.map((img, index) => `
+    <div class="preview-item">
+      <img src="${img}" data-index="${index}">
+      <button class="preview-remove" onclick="removeUploadedImage(${index})">×</button>
+    </div>
+  `).join('');
+  
+  // 切换到发布图集标签页
+  switchAdminTab('publish');
+  
+  // 滚动到表单顶部
+  document.getElementById('tab-publish').scrollIntoView({ behavior: 'smooth' });
+  
+  // 设置当前编辑的图集ID
+  window.editingAlbumId = id;
+  
+  alert('已加载图集信息，修改后点击发布按钮保存');
+}
+
+// 检测全部链接
+function checkAllLinks() {
+  const albums = getDB('albums');
+  if (albums.length === 0) {
+    alert('暂无图集');
+    return;
+  }
+  
+  alert('开始检测所有链接状态...');
+  
+  // 模拟检测过程
+  let invalidCount = 0;
+  albums.forEach((album, index) => {
+    setTimeout(() => {
+      // 模拟检测结果
+      const statuses = ['normal', 'invalid', 'cancelled'];
+      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+      album.linkStatus = randomStatus;
+      
+      if (randomStatus !== 'normal') {
+        invalidCount++;
+      }
+      
+      // 最后一个检测完成
+      if (index === albums.length - 1) {
+        setDB('albums', albums);
+        renderPage();
+        if (invalidCount > 0) {
+          alert(`检测完成！共发现 ${invalidCount} 个失效链接`);
+        } else {
+          alert('检测完成！所有链接状态正常');
+        }
+      }
+    }, index * 200);
+  });
+}
+
+// ==========================================
+// 站主私信模块 - 会话管理
+// ==========================================
+function getConversations() {
+  const messages = getDB('messages');
+  const users = getDB('users');
+  const conversations = [];
+  const userIds = new Set();
+  
+  messages.forEach(m => {
+    if (!m.isAdmin && m.userId) {
+      userIds.add(m.userId);
+    }
+  });
+  
+  userIds.forEach(userId => {
+    const userMessages = messages.filter(m => m.userId === userId || (m.isAdmin && m.targetUserId === userId));
+    const lastMessage = userMessages.sort((a, b) => b.time - a.time)[0];
+    const user = users.find(u => u.id === userId);
+    
+    let displayName;
+    if (userId === 'guest') {
+      const guestMsgs = messages.filter(m => m.userId === 'guest' && m.username);
+      displayName = guestMsgs.length > 0 ? guestMsgs[guestMsgs.length - 1].username : '游客';
+    } else {
+      displayName = user?.username || '未知用户';
+    }
+    
+    conversations.push({
+      userId,
+      username: displayName,
+      lastMessage: lastMessage?.content || '',
+      lastTime: lastMessage?.time || 0
+    });
+  });
+  
+  return conversations.sort((a, b) => b.lastTime - a.lastTime);
+}
+
+function selectConversation(userId) {
+  window.currentUserId = userId;
+  renderAdmin(document.getElementById('root'));
+  // 重新渲染后切换回站主私信标签页
+  setTimeout(() => {
+    switchAdminTab('messages');
+  }, 50);
+}
+
+function sendAdminReplyToUser() {
+  const input = document.getElementById('adminReply');
+  const content = input.value.trim();
+  const userId = window.currentUserId;
+  
+  if (!content || !userId) return;
+  
+  const message = {
+    id: Date.now().toString(),
+    content,
+    time: Date.now(),
+    isAdmin: true,
+    userId: '6688',
+    targetUserId: userId
+  };
+  
+  const messages = getDB('messages');
+  messages.push(message);
+  setDB('messages', messages);
+  
+  input.value = '';
+  
+  // 更新消息列表
+  const container = document.getElementById('adminChatContainer');
+  container.innerHTML += `
+    <div class="chat-message admin">
+      <div>
+        <div class="chat-bubble">${content}</div>
+        <div class="chat-timestamp">${formatTime(Date.now())}</div>
+      </div>
+    </div>
+  `;
+  
+  scrollChatToBottom('adminChatContainer');
+}
+
+function getGuestNickname() {
+  const prefixes = ['快乐', '幸运', '阳光', '星辰', '清风', '明月', '流云', '飞雪', '晨曦', '暮色', '幽兰', '翠竹', '银河', '彩虹', '碧波', '紫烟', '青鸾', '白鹭', '金鳞', '玉兔'];
+  const suffixes = ['小熊', '小猫', '小狗', '小兔', '小鸟', '小鱼', '小龙', '小虎', '小鹿', '小狐', '小鹤', '小雀', '小蝶', '小蜂', '小鲸', '小鹰', '小豹', '小狮', '小象', '小鹏'];
+  
+  const messages = getDB('messages');
+  const usedNames = new Set();
+  messages.forEach(m => {
+    if (!m.isAdmin && m.username && m.userId === 'guest') {
+      usedNames.add(m.username);
+    }
+  });
+  
+  let nickname = '';
+  let attempts = 0;
+  do {
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    nickname = prefix + suffix;
+    attempts++;
+  } while (usedNames.has(nickname) && attempts < 100);
+  
+  return nickname;
+}
+
+function sendUserMessage() {
+  const input = document.getElementById('userMessageInput');
+  const content = input.value.trim();
+  const user = getCurrentUser();
+  
+  if (!content) return;
+  
+  let userId, username;
+  if (user) {
+    userId = user.id;
+    username = user.username;
+  } else {
+    userId = 'guest';
+    username = getGuestNickname();
+  }
+  
+  const message = {
+    id: Date.now().toString(),
+    content,
+    time: Date.now(),
+    isAdmin: false,
+    userId,
+    username,
+    read: false
+  };
+  
+  const messages = getDB('messages');
+  messages.push(message);
+  setDB('messages', messages);
+  
+  input.value = '';
+  
+  const container = document.getElementById('userChatContainer');
+  container.innerHTML += `
+    <div class="chat-message user">
+      <div>
+        <div class="chat-bubble">${content}</div>
+        <div class="chat-timestamp">${formatTime(Date.now())}</div>
+      </div>
+    </div>
+  `;
+  
+  scrollChatToBottom('userChatContainer');
+}
+
+// ==========================================
+// 链接状态管理功能
+// ==========================================
+function checkLinkStatus(albumId) {
+  const albums = getDB('albums');
+  const album = albums.find(a => a.id === albumId);
+  
+  if (!album) return;
+  
+  // 打开链接状态确认弹窗
+  showLinkStatusModal(albumId, album.title, album.link, album.linkStatus);
+}
+
+function showLinkStatusModal(albumId, title, link, currentStatus) {
+  const modalHtml = `
+    <div class="modal-overlay" onclick="closeLinkStatusModal()">
+      <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3>确认链接状态</h3>
+          <button class="modal-close" onclick="closeLinkStatusModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 1rem;"><strong>图集名称：</strong>${title}</p>
+          <p style="margin-bottom: 1rem;"><strong>网盘链接：</strong><a href="${link}" target="_blank" style="color: var(--color-primary);">点击访问</a></p>
+          <p style="margin-bottom: 1.5rem; color: var(--color-text-muted);">请访问链接确认状态后选择：</p>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-success" onclick="setLinkStatus('${albumId}', 'normal')">
+              <i class="fas fa-check-circle"></i>链接正常
+            </button>
+            <button class="btn btn-danger" onclick="setLinkStatus('${albumId}', 'invalid')">
+              <i class="fas fa-times-circle"></i>链接失效
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const modal = document.createElement('div');
+  modal.id = 'linkStatusModal';
+  modal.innerHTML = modalHtml;
+  document.body.appendChild(modal);
+}
+
+function closeLinkStatusModal() {
+  const modal = document.getElementById('linkStatusModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function setLinkStatus(albumId, status) {
+  const albums = getDB('albums');
+  const albumIndex = albums.findIndex(a => a.id === albumId);
+  
+  if (albumIndex !== -1) {
+    albums[albumIndex].linkStatus = status;
+    setDB('albums', albums);
+    alert(`链接状态已更新为: ${status === 'normal' ? '正常' : '失效'}`);
+    closeLinkStatusModal();
+    if (isAdmin()) {
+      renderAdmin(document.getElementById('root'));
+    }
+  }
+}
+
+// 批量检测所有链接状态（需手动确认）
+function autoCheckAllLinks() {
+  const albums = getDB('albums');
+  if (albums.length === 0) {
+    alert('暂无图集');
+    return;
+  }
+  
+  // 统计当前状态
+  const normalCount = albums.filter(a => a.linkStatus === 'normal').length;
+  const invalidCount = albums.filter(a => a.linkStatus === 'invalid').length;
+  const cancelledCount = albums.filter(a => a.linkStatus === 'cancelled').length;
+  
+  alert(`当前链接状态统计：\n- 正常: ${normalCount} 个\n- 失效: ${invalidCount} 个\n- 已取消: ${cancelledCount} 个\n\n如需更新状态，请点击每个图集旁的"检测"按钮手动确认。`);
+}
+
+// ==========================================
+// 首页装扮配置功能
+// ==========================================
+let heroImageData = '';
+let logoImageData = '';
+let bannerImages = [];
+
+// 初始化横幅图片
+function initBannerImages() {
+  const heroConfig = getDB('heroConfig')[0];
+  if (heroConfig && heroConfig.banners) {
+    bannerImages = [...heroConfig.banners];
+  }
+}
+initBannerImages();
+
+function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    logoImageData = e.target.result;
+    const uploadArea = document.getElementById('logoUploadArea');
+    uploadArea.innerHTML = `
+      <img src="${logoImageData}" style="max-width: 80px; max-height: 80px; margin-bottom: 0.5rem;">
+      <p style="color: var(--color-text); font-size: 0.875rem;">点击更换Logo</p>
+    `;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleHeroUpload(event) {
+  const file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    heroImageData = e.target.result;
+    const uploadArea = document.getElementById('heroUploadArea');
+    uploadArea.innerHTML = `
+      <img src="${heroImageData}" style="max-width: 200px; max-height: 100px; margin-bottom: 0.5rem;">
+      <p style="color: var(--color-text); font-size: 0.875rem;">点击更换横幅</p>
+    `;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 处理横幅上传
+function handleBannerUpload(event) {
+  const file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  if (bannerImages.length >= 3) {
+    alert('最多只能添加3张横幅图片');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    bannerImages.push(e.target.result);
+    updateBannerUploadArea();
+  };
+  reader.readAsDataURL(file);
+}
+
+// 更新横幅上传区域显示
+function updateBannerUploadArea() {
+  const uploadArea = document.getElementById('bannerUploadArea');
+  if (!uploadArea) return;
+  
+  const container = uploadArea.parentElement;
+  let html = '';
+  
+  bannerImages.forEach((banner, index) => {
+    html += `
+      <div class="banner-upload-item">
+        <img src="${banner}" style="max-width: 150px; max-height: 80px; margin-bottom: 0.5rem;">
+        <button class="btn btn-danger btn-sm" onclick="removeBanner(${index})">删除</button>
+      </div>
+    `;
+  });
+  
+  if (bannerImages.length < 3) {
+    html += `
+      <div class="upload-area" id="bannerUploadArea" onclick="document.getElementById('bannerFileInput').click()">
+        <i class="fas fa-plus" style="font-size: 1.5rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>
+        <p style="color: var(--color-text); font-size: 0.875rem;">添加横幅图片</p>
+        <p style="color: var(--color-text-muted); font-size: 0.75rem;">还可添加 ${3 - bannerImages.length} 张</p>
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+}
+
+// 删除横幅图片
+function removeBanner(index) {
+  bannerImages.splice(index, 1);
+  updateBannerUploadArea();
+}
+
+function saveHeroConfig() {
+  const copyrightInput = document.getElementById('copyrightInput');
+  const filingInput = document.getElementById('filingInput');
+  const securityInput = document.getElementById('securityInput');
+  
+  const config = {
+    image: heroImageData,
+    logo: logoImageData,
+    banners: bannerImages,
+    copyright: copyrightInput ? copyrightInput.value.trim() : '',
+    filing: filingInput ? filingInput.value.trim() : '',
+    security: securityInput ? securityInput.value.trim() : ''
+  };
+  
+  setDB('heroConfig', [config]);
+  alert('首页装扮配置保存成功！');
+}
+
+// ==========================================
+// 分类管理功能
+// ==========================================
+function addCategory() {
+  const name = prompt('请输入分类名称：');
+  if (!name || !name.trim()) return;
+  
+  const categories = getDB('categories');
+  const exists = categories.find(c => c.name === name.trim());
+  
+  if (exists) {
+    alert('分类已存在');
+    return;
+  }
+  
+  categories.push({
+    id: Date.now().toString(),
+    name: name.trim(),
+    sort: categories.length
+  });
+  
+  setDB('categories', categories);
+  renderAdmin(document.getElementById('root'));
+}
+
+function updateCategoryName(categoryId, newName) {
+  if (!newName || !newName.trim()) return;
+  
+  const categories = getDB('categories');
+  const index = categories.findIndex(c => c.id === categoryId);
+  
+  if (index === -1) return;
+  
+  // 检查是否重名
+  const exists = categories.find(c => c.id !== categoryId && c.name === newName.trim());
+  if (exists) {
+    alert('分类名称已存在');
+    // 恢复原来的名称
+    renderAdmin(document.getElementById('root'));
+    return;
+  }
+  
+  categories[index].name = newName.trim();
+  setDB('categories', categories);
+}
+
+function deleteCategory(categoryId) {
+  if (categoryId === 'home') {
+    alert('首页分类不能删除');
+    return;
+  }
+  
+  if (!confirm('确定删除此分类？')) return;
+  
+  const categories = getDB('categories').filter(c => c.id !== categoryId);
+  // 更新排序
+  categories.forEach((c, index) => {
+    c.sort = index;
+  });
+  setDB('categories', categories);
+  
+  // 更新图集的分类引用
+  const albums = getDB('albums');
+  albums.forEach(a => {
+    if (a.categoryId === categoryId) {
+      a.categoryId = '';
+    }
+  });
+  setDB('albums', albums);
+  
+  renderAdmin(document.getElementById('root'));
+}
+
+function moveCategoryUp(categoryId) {
+  const categories = getDB('categories');
+  const index = categories.findIndex(c => c.id === categoryId);
+  
+  if (index <= 0) return;
+  
+  // 交换位置
+  const temp = categories[index];
+  categories[index] = categories[index - 1];
+  categories[index - 1] = temp;
+  
+  // 更新排序
+  categories.forEach((c, i) => {
+    c.sort = i;
+  });
+  
+  setDB('categories', categories);
+  renderAdmin(document.getElementById('root'));
+}
+
+function moveCategoryDown(categoryId) {
+  const categories = getDB('categories');
+  const index = categories.findIndex(c => c.id === categoryId);
+  
+  if (index >= categories.length - 1) return;
+  
+  // 交换位置
+  const temp = categories[index];
+  categories[index] = categories[index + 1];
+  categories[index + 1] = temp;
+  
+  // 更新排序
+  categories.forEach((c, i) => {
+    c.sort = i;
+  });
+  
+  setDB('categories', categories);
+  renderAdmin(document.getElementById('root'));
+}
+
+// ==========================================
+// 支付宝支付弹窗功能
+// ==========================================
+let countdownInterval = null;
+let remainingSeconds = 300; // 5分钟 = 300秒
+let currentOrderData = null;
+
+// 显示支付弹窗
+function showAlipayModal(amount, link, albumId, albumTitle) {
+  currentOrderData = { amount, link, albumId, albumTitle };
+  remainingSeconds = 300;
+  
+  // 获取收款配置
+  const paymentConfig = getDB('paymentConfig')[0] || { type: 'alipay', qrCode: '' };
+  const hasCustomQr = paymentConfig.qrCode;
+  
+  const modal = document.createElement('div');
+  modal.id = 'alipayModal';
+  modal.className = 'modal-overlay show';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="modal-close" onclick="closeAlipayModal()">
+          <i class="fas fa-times"></i>
+        </button>
+        <h3>
+          <i class="fas fa-qrcode" style="margin-right: 0.5rem;"></i>
+          ${paymentConfig.type === 'alipay' ? '支付宝支付' : '微信支付'}
+        </h3>
+      </div>
+      <div class="modal-body">
+        <div class="qr-container">
+          ${hasCustomQr ? `
+            <img src="${paymentConfig.qrCode}" style="max-width: 100%; height: auto; max-height: 220px; border-radius: 0.5rem; margin: 0 auto; display: block;">
+          ` : `
+            <div class="qr-code">
+              <svg viewBox="0 0 100 100">
+                <rect width="100" height="100" fill="${paymentConfig.type === 'alipay' ? '#1677ff' : '#10b981'}"/>
+                <rect x="10" y="10" width="25" height="25" fill="white"/>
+                <rect x="65" y="10" width="25" height="25" fill="white"/>
+                <rect x="10" y="65" width="25" height="25" fill="white"/>
+                <rect x="40" y="40" width="20" height="20" fill="white"/>
+                <rect x="70" y="70" width="8" height="8" fill="white"/>
+                <rect x="70" y="78" width="8" height="2" fill="white"/>
+                <rect x="78" y="70" width="2" height="8" fill="white"/>
+              </svg>
+            </div>
+          `}
+        </div>
+        
+        <div class="amount-display">
+          <div class="amount-label">支付金额</div>
+          <div class="amount-value">¥ ${amount}</div>
+        </div>
+        
+        <div class="countdown-container">
+          <div class="countdown-label">支付有效期</div>
+          <div class="countdown-value" id="countdown">05:00</div>
+        </div>
+        
+        <button class="btn" style="width: 100%; margin-top: 1rem;" onclick="simulatePayment()">
+          <i class="fas fa-check-circle"></i>
+          确认已支付
+        </button>
+        
+        <div class="payment-tips">
+          <p><i class="fas fa-mobile-alt"></i>打开${paymentConfig.type === 'alipay' ? '支付宝' : '微信'}扫码支付</p>
+          <p><i class="fas fa-clock"></i>支付后点击确认按钮获取链接</p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // 点击遮罩层关闭弹窗
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeAlipayModal();
+    }
+  });
+  
+  // 启动倒计时
+  startCountdown();
+}
+
+// 关闭支付宝弹窗
+function closeAlipayModal() {
+  const modal = document.getElementById('alipayModal');
+  if (modal) {
+    modal.classList.remove('show');
+    setTimeout(() => {
+      document.body.removeChild(modal);
+    }, 300);
+  }
+  
+  // 停止倒计时
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+// 启动倒计时
+function startCountdown() {
+  updateCountdown();
+  countdownInterval = setInterval(() => {
+    remainingSeconds--;
+    updateCountdown();
+    
+    if (remainingSeconds <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      alert('支付已超时，请重新购买');
+      closeAlipayModal();
+    }
+  }, 1000);
+}
+
+// 更新倒计时显示
+function updateCountdown() {
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  const countdownEl = document.getElementById('countdown');
+  if (countdownEl) {
+    countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+}
+
+// 模拟支付成功
+function simulatePayment() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  
+  // 创建订单记录（如果用户已登录）
+  if (isUserLoggedIn() && currentOrderData) {
+    const order = {
+      id: Date.now().toString(),
+      userId: getCurrentUser().id,
+      username: getCurrentUser().username,
+      albumId: currentOrderData.albumId,
+      title: currentOrderData.albumTitle,
+      price: currentOrderData.amount,
+      link: currentOrderData.link,
+      time: Date.now(),
+      status: 'completed'
+    };
+    
+    const orders = getDB('orders');
+    orders.push(order);
+    setDB('orders', orders);
+  }
+  
+  closeAlipayModal();
+  
+  // 显示下载链接
+  const linkBox = document.getElementById('linkBox');
+  if (linkBox) {
+    linkBox.classList.add('show');
+  }
+}
+
+// 复制链接功能
+function copyLink(url, button) {
+  navigator.clipboard.writeText(url).then(() => {
+    button.innerHTML = '<i class="fas fa-check"></i> 已复制';
+    button.classList.add('copied');
+    
+    setTimeout(() => {
+      button.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
+      button.classList.remove('copied');
+    }, 2000);
+  }).catch(() => {
+    // 降级方案
+    const textarea = document.createElement('textarea');
+    textarea.value = url;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    button.innerHTML = '<i class="fas fa-check"></i> 已复制';
+    button.classList.add('copied');
+    
+    setTimeout(() => {
+      button.innerHTML = '<i class="fas fa-copy"></i> 复制链接';
+      button.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// ==========================================
+// 启动
+// ==========================================
+window.onload = function() {
+  renderPage();
+  window.addEventListener('hashchange', renderPage);
+};
+</script>
+</body>
+</html>
