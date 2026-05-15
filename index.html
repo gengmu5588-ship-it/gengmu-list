@@ -1392,37 +1392,39 @@
       cursor: not-allowed;
     }
 
-    .banner-carousel {
-      position: relative;
-      margin-top: 2rem;
-      border-radius: 1rem;
-      overflow: hidden;
-    }
-
-    .banner-container {
+    .hero-banner-carousel {
       position: relative;
       width: 100%;
-      height: 160px;
+      height: 200px;
+      border-radius: 1rem;
+      overflow: hidden;
+      margin-bottom: 2rem;
     }
 
-    .banner-item {
+    .hero-banner-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hero-banner-item {
       position: absolute;
       inset: 0;
       opacity: 0;
-      transition: opacity 0.5s ease;
+      transition: opacity 0.6s ease;
     }
 
-    .banner-item.active {
+    .hero-banner-item.active {
       opacity: 1;
     }
 
-    .banner-item img {
+    .hero-banner-item img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    .banner-indicators {
+    .hero-banner-indicators {
       position: absolute;
       bottom: 0.75rem;
       left: 50%;
@@ -1786,8 +1788,8 @@
         min-width: 0;
       }
 
-      .banner-container {
-        height: 120px;
+      .hero-banner-carousel {
+        height: 140px;
       }
 
       .back-to-top {
@@ -2247,11 +2249,29 @@ function renderIndex(root, categoryId = '') {
 
     <div class="container animate-fade-in">
       <!-- 首页横幅 -->
-      ${heroConfig.image ? `
-        <div class="hero-banner">
-          <img src="${heroConfig.image}" alt="首页横幅">
-        </div>
-      ` : ''}
+      ${(() => {
+        const heroImages = [heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean);
+        if (heroImages.length === 0) return '';
+        if (heroImages.length === 1) {
+          return `<div class="hero-banner"><img src="${heroImages[0]}" alt="首页横幅"></div>`;
+        }
+        return `
+          <div class="hero-banner-carousel" id="heroBannerCarousel">
+            <div class="hero-banner-container">
+              ${heroImages.map((img, i) => `
+                <div class="hero-banner-item ${i === 0 ? 'active' : ''}">
+                  <img src="${img}" alt="横幅${i + 1}">
+                </div>
+              `).join('')}
+            </div>
+            <div class="hero-banner-indicators">
+              ${heroImages.map((_, i) => `
+                <button class="indicator ${i === 0 ? 'active' : ''}" onclick="goToHeroBanner(${i})"></button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      })()}
       
       <!-- 分类导航 -->
       <div class="category-nav">
@@ -2335,34 +2355,10 @@ function renderIndex(root, categoryId = '') {
     `;
   }
 
-  // 底部轮播横幅
-  const banners = heroConfig.banners || [];
-  let bannerCarousel = '';
-  if (banners.length > 0) {
-    bannerCarousel = `
-      <div class="banner-carousel" id="bannerCarousel">
-        <div class="banner-container">
-          ${banners.map((banner, index) => `
-            <div class="banner-item ${index === 0 ? 'active' : ''}">
-              <img src="${banner}" alt="横幅${index + 1}">
-            </div>
-          `).join('')}
-        </div>
-        <div class="banner-indicators">
-          ${banners.map((_, index) => `
-            <button class="indicator ${index === 0 ? 'active' : ''}" onclick="goToBanner(${index})"></button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-
   html += `
       </div>
       
       ${paginationHtml}
-      
-      ${bannerCarousel}
       
       <footer style="text-align: center; padding: 2rem 1rem 1.5rem; margin-top: 2rem; border-top: 1px solid var(--color-border);">
         <p style="font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.8;">
@@ -2383,8 +2379,9 @@ function renderIndex(root, categoryId = '') {
     }
   }
   
-  if (banners.length > 1) {
-    startBannerCarousel();
+  const heroImages = [heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean);
+  if (heroImages.length > 1) {
+    startHeroBannerCarousel();
   }
 }
 
@@ -2621,9 +2618,6 @@ function submitReview(albumId) {
   renderPage();
 }
 
-// 轮播相关函数
-let bannerInterval = null;
-
 function showSitePopup(config) {
   const popupKey = 'popup_closed_' + (config.popupTitle || '').replace(/\s/g, '') + '_' + config.popupContent.length;
   const overlay = document.createElement('div');
@@ -2658,23 +2652,24 @@ function closeSitePopup(btn, popupKey, link) {
   }
 }
 
-function startBannerCarousel() {
-  if (bannerInterval) clearInterval(bannerInterval);
-  bannerInterval = setInterval(() => {
-    const currentIndex = Array.from(document.querySelectorAll('.banner-item')).findIndex(el => el.classList.contains('active'));
-    const indicators = document.querySelectorAll('.indicator');
-    const items = document.querySelectorAll('.banner-item');
+let heroBannerInterval = null;
+
+function startHeroBannerCarousel() {
+  if (heroBannerInterval) clearInterval(heroBannerInterval);
+  heroBannerInterval = setInterval(() => {
+    const items = document.querySelectorAll('.hero-banner-item');
+    const indicators = document.querySelectorAll('.hero-banner-indicators .indicator');
+    if (items.length === 0) return;
+    const currentIndex = Array.from(items).findIndex(el => el.classList.contains('active'));
     const nextIndex = (currentIndex + 1) % items.length;
-    
     items.forEach((item, i) => item.classList.toggle('active', i === nextIndex));
     indicators.forEach((ind, i) => ind.classList.toggle('active', i === nextIndex));
-  }, 3000);
+  }, 4000);
 }
 
-function goToBanner(index) {
-  const indicators = document.querySelectorAll('.indicator');
-  const items = document.querySelectorAll('.banner-item');
-  
+function goToHeroBanner(index) {
+  const items = document.querySelectorAll('.hero-banner-item');
+  const indicators = document.querySelectorAll('.hero-banner-indicators .indicator');
   items.forEach((item, i) => item.classList.toggle('active', i === index));
   indicators.forEach((ind, i) => ind.classList.toggle('active', i === index));
 }
@@ -3187,13 +3182,7 @@ function renderAdmin(root) {
   if (albums.length === 0) {
     listHtml = `<div class="empty-state"><i class="fas fa-inbox"></i><p>暂无图集</p></div>`;
   } else {
-    listHtml = `
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-        <button class="btn btn-secondary" onclick="checkAllLinks()">
-          <i class="fas fa-check-circle"></i>检测全部链接
-        </button>
-      </div>
-    `;
+    listHtml = '';
     albums.forEach(a => {
       const linkStatus = a.linkStatus || 'normal';
       const statusText = linkStatus === 'normal' ? '正常' : linkStatus === 'invalid' ? '失效' : '已取消分享';
@@ -3328,14 +3317,25 @@ function renderAdmin(root) {
 
       <!-- 发布图集 -->
       <div id="tab-publish" class="tab-content" style="display: block;">
-        <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-            <div style="width: 2.5rem; height: 2.5rem; background: rgba(124, 58, 237, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
-              <i class="fas fa-plus text-primary"></i>
-            </div>
-            <div>
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">发布新图集</h3>
-              <p style="font-size: 0.875rem; color: var(--color-text-muted);">填写图集信息并发布</p>
+        <div style="display: flex; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border);">
+          <button class="publish-sub-tab active" onclick="switchPublishSubTab('new')" style="flex: 1; padding: 0.625rem; background: none; border: none; color: var(--color-text); font-size: 0.875rem; border-bottom: 2px solid var(--color-primary); transition: all 0.2s; cursor: pointer;">
+            <i class="fas fa-plus" style="margin-right: 0.25rem;"></i>发布新图集
+          </button>
+          <button class="publish-sub-tab" onclick="switchPublishSubTab('list')" style="flex: 1; padding: 0.625rem; background: none; border: none; color: var(--color-text-muted); font-size: 0.875rem; border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer;">
+            <i class="fas fa-list" style="margin-right: 0.25rem;"></i>图集列表
+          </button>
+        </div>
+        
+        <div id="publishSubNew">
+          <div class="card" style="padding: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+              <div style="width: 2.5rem; height: 2.5rem; background: rgba(124, 58, 237, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-plus text-primary"></i>
+              </div>
+              <div>
+                <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">发布新图集</h3>
+                <p style="font-size: 0.875rem; color: var(--color-text-muted);">填写图集信息并发布</p>
+              </div>
             </div>
           </div>
           
@@ -3397,16 +3397,33 @@ function renderAdmin(root) {
             <input type="hidden" id="description" value="">
           </div>
           
-          <button class="btn" style="width: 100%; padding: 0.875rem;" onclick="add()">
-            <i class="fas fa-cloud-upload-alt"></i>发布图集
+          <button class="btn" style="width: 100%; padding: 0.875rem; text-align: center;" onclick="add()">
+            <i class="fas fa-cloud-upload-alt"></i> 发布图集
           </button>
         </div>
-
-        <div style="margin-bottom: 1rem;">
-          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1rem;">
-            <i class="fas fa-list text-primary" style="margin-right: 0.5rem;"></i>图集列表
-          </h3>
+        </div>
+        
+        <div id="publishSubList" style="display: none;">
+        <div class="card" style="padding: 1.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="width: 2.5rem; height: 2.5rem; background: rgba(124, 58, 237, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
+              <i class="fas fa-list text-primary"></i>
+            </div>
+            <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">图集列表</h3>
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;">
+            <select id="adminCategoryFilter" class="input-field" style="width: auto; min-width: 140px; color: white;" onchange="filterAdminAlbums()">
+              <option value="">全部分类</option>
+              ${categories.filter(c => c.id !== 'home').map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+            <button class="btn btn-secondary" onclick="checkAllLinks()">
+              <i class="fas fa-check-circle"></i>检测全部链接
+            </button>
+          </div>
+          <div id="adminAlbumList">
           ${listHtml}
+          </div>
+        </div>
         </div>
       </div>
 
@@ -3440,8 +3457,8 @@ function renderAdmin(root) {
             <input type="file" id="qrFileInput" accept="image/*" style="display: none;" onchange="handleQrUpload(event)">
           </div>
           
-          <button class="btn" style="width: 100%;" onclick="savePaymentConfig()">
-            <i class="fas fa-save"></i>保存配置
+          <button class="btn" style="width: 100%; text-align: center;" onclick="savePaymentConfig()">
+            <i class="fas fa-save"></i> 保存配置
           </button>
         </div>
       </div>
@@ -3538,73 +3555,79 @@ function renderAdmin(root) {
       <!-- 首页装扮 -->
       <div id="tab-hero" class="tab-content" style="display: none;">
         <div class="card" style="padding: 1.5rem;">
-          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
-            <i class="fas fa-image text-primary" style="margin-right: 0.5rem;"></i>首页装扮设置
-          </h3>
-          
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Logo图标（顶部导航栏左侧图标）</label>
-            <div class="upload-area" id="logoUploadArea" onclick="document.getElementById('logoFileInput').click()">
-              ${heroConfig.logo ? `<img src="${heroConfig.logo}" style="max-width: 80px; max-height: 80px; margin-bottom: 0.5rem;">` : `<i class="fas fa-upload" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>`}
-              <p style="color: var(--color-text); font-size: 0.875rem;">${heroConfig.logo ? '点击更换Logo' : '点击上传Logo图片'}</p>
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <div style="width: 2.5rem; height: 2.5rem; background: rgba(124, 58, 237, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
+              <i class="fas fa-image text-primary"></i>
             </div>
-            <input type="file" id="logoFileInput" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+            <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">首页装扮设置</h3>
           </div>
           
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">首页横幅图片</label>
-            <div class="upload-area" id="heroUploadArea" onclick="document.getElementById('heroFileInput').click()">
-              ${heroConfig.image ? `<img src="${heroConfig.image}" style="max-width: 200px; max-height: 100px; margin-bottom: 0.5rem;">` : `<i class="fas fa-upload" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>`}
-              <p style="color: var(--color-text); font-size: 0.875rem;">${heroConfig.image ? '点击更换横幅' : '点击上传横幅图片'}</p>
+          <div style="display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border);">
+            <button class="sub-tab-btn active" onclick="switchHeroSubTab('decorate')" style="flex: 1; padding: 0.625rem; background: none; border: none; color: var(--color-text); font-size: 0.875rem; border-bottom: 2px solid var(--color-primary); transition: all 0.2s; cursor: pointer;">
+              <i class="fas fa-palette" style="margin-right: 0.25rem;"></i>首页装扮
+            </button>
+            <button class="sub-tab-btn" onclick="switchHeroSubTab('popup')" style="flex: 1; padding: 0.625rem; background: none; border: none; color: var(--color-text-muted); font-size: 0.875rem; border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer;">
+              <i class="fas fa-bullhorn" style="margin-right: 0.25rem;"></i>弹窗公告
+            </button>
+          </div>
+          
+          <div id="heroSubDecorate">
+            <div class="form-group">
+              <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Logo图标（顶部导航栏左侧图标）</label>
+              <div class="upload-area" id="logoUploadArea" onclick="document.getElementById('logoFileInput').click()">
+                ${heroConfig.logo ? `<img src="${heroConfig.logo}" style="max-width: 80px; max-height: 80px; margin-bottom: 0.5rem;">` : `<i class="fas fa-upload" style="font-size: 2rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>`}
+                <p style="color: var(--color-text); font-size: 0.875rem;">${heroConfig.logo ? '点击更换Logo' : '点击上传Logo图片'}</p>
+              </div>
+              <input type="file" id="logoFileInput" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
             </div>
-            <input type="file" id="heroFileInput" accept="image/*" style="display: none;" onchange="handleHeroUpload(event)">
-          </div>
-          
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">底部轮播横幅（最多3张，自动轮播）</label>
-            <div class="banner-upload-area">
-              ${(heroConfig.banners || []).map((banner, index) => `
-                <div class="banner-upload-item">
-                  <img src="${banner}" style="max-width: 150px; max-height: 80px; margin-bottom: 0.5rem;">
-                  <button class="btn btn-danger btn-sm" onclick="removeBanner(${index})">删除</button>
-                </div>
-              `).join('')}
-              ${(heroConfig.banners || []).length < 3 ? `
-                <div class="upload-area" id="bannerUploadArea" onclick="document.getElementById('bannerFileInput').click()">
-                  <i class="fas fa-plus" style="font-size: 1.5rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>
-                  <p style="color: var(--color-text); font-size: 0.875rem;">添加横幅图片</p>
-                  <p style="color: var(--color-text-muted); font-size: 0.75rem;">还可添加 ${3 - (heroConfig.banners || []).length} 张</p>
-                </div>
-              ` : ''}
+            
+            <div class="form-group">
+              <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">首页顶部横图（最多3张，自动轮播）</label>
+              <div class="banner-upload-area" id="heroImagesUploadArea">
+                ${[heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean).map((img, index) => `
+                  <div class="banner-upload-item">
+                    <img src="${img}" style="max-width: 150px; max-height: 80px; margin-bottom: 0.5rem;">
+                    <button class="btn btn-danger btn-sm" onclick="removeHeroImage(${index})">删除</button>
+                  </div>
+                `).join('')}
+                ${[heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean).length < 3 ? `
+                  <div class="upload-area" id="heroImageUploadArea" onclick="document.getElementById('heroImageFileInput').click()">
+                    <i class="fas fa-plus" style="font-size: 1.5rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>
+                    <p style="color: var(--color-text); font-size: 0.875rem;">添加横图</p>
+                    <p style="color: var(--color-text-muted); font-size: 0.75rem;">还可添加 ${3 - [heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean).length} 张</p>
+                  </div>
+                ` : ''}
+              </div>
+              <input type="file" id="heroImageFileInput" accept="image/*" style="display: none;" onchange="handleHeroImageUpload(event)">
             </div>
-            <input type="file" id="bannerFileInput" accept="image/*" style="display: none;" onchange="handleBannerUpload(event)">
+            
+            <div class="form-group">
+              <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-copyright" style="margin-right: 0.25rem;"></i>版权备案信息
+              </label>
+              <input id="copyrightInput" class="input-field" placeholder="如：© 2024 轻图社 版权所有 | 京ICP备XXXXXXXX号" value="${heroConfig.copyright || ''}">
+            </div>
+            
+            <div class="form-group">
+              <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-file-contract" style="margin-right: 0.25rem;"></i>备案号
+              </label>
+              <input id="filingInput" class="input-field" placeholder="如：京ICP备XXXXXXXX号-1" value="${heroConfig.filing || ''}">
+            </div>
+            
+            <div class="form-group">
+              <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-shield-alt" style="margin-right: 0.25rem;"></i>网络安全提示
+              </label>
+              <input id="securityInput" class="input-field" placeholder="如：本站内容仅供学习交流，严禁用于商业用途" value="${heroConfig.security || ''}">
+            </div>
+            
+            <button class="btn" style="width: 100%; text-align: center;" onclick="saveHeroConfig()">
+              <i class="fas fa-save"></i> 保存配置
+            </button>
           </div>
           
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
-              <i class="fas fa-copyright" style="margin-right: 0.25rem;"></i>版权备案信息
-            </label>
-            <input id="copyrightInput" class="input-field" placeholder="如：© 2024 轻图社 版权所有 | 京ICP备XXXXXXXX号" value="${heroConfig.copyright || ''}">
-          </div>
-          
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
-              <i class="fas fa-file-contract" style="margin-right: 0.25rem;"></i>备案号
-            </label>
-            <input id="filingInput" class="input-field" placeholder="如：京ICP备XXXXXXXX号-1" value="${heroConfig.filing || ''}">
-          </div>
-          
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
-              <i class="fas fa-shield-alt" style="margin-right: 0.25rem;"></i>网络安全提示
-            </label>
-            <input id="securityInput" class="input-field" placeholder="如：本站内容仅供学习交流，严禁用于商业用途" value="${heroConfig.security || ''}">
-          </div>
-          
-          <div class="form-group">
-            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
-              <i class="fas fa-bullhorn" style="margin-right: 0.25rem;"></i>首页弹窗公告
-            </label>
+          <div id="heroSubPopup" style="display: none;">
             <div style="background: rgba(10,10,10,0.5); border: 1px solid var(--color-border); border-radius: 0.75rem; padding: 1rem;">
               <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
                 <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: var(--color-text);">
@@ -3637,11 +3660,11 @@ function renderAdmin(root) {
               </div>
               ` : ''}
             </div>
+            
+            <button class="btn" style="width: 100%; text-align: center; margin-top: 1rem;" onclick="saveHeroConfig()">
+              <i class="fas fa-save"></i> 保存配置
+            </button>
           </div>
-          
-          <button class="btn" style="width: 100%;" onclick="saveHeroConfig()">
-            <i class="fas fa-save"></i>保存配置
-          </button>
         </div>
       </div>
 
@@ -3943,6 +3966,34 @@ let uploadedImages = [];
 // ==========================================
 // 后台选项卡切换
 // ==========================================
+function switchHeroSubTab(tab) {
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+    btn.style.borderBottomColor = 'transparent';
+    btn.style.color = 'var(--color-text-muted)';
+  });
+  const activeBtn = document.querySelector(`.sub-tab-btn[onclick="switchHeroSubTab('${tab}')"]`);
+  activeBtn.classList.add('active');
+  activeBtn.style.borderBottomColor = 'var(--color-primary)';
+  activeBtn.style.color = 'var(--color-text)';
+  document.getElementById('heroSubDecorate').style.display = tab === 'decorate' ? 'block' : 'none';
+  document.getElementById('heroSubPopup').style.display = tab === 'popup' ? 'block' : 'none';
+}
+
+function switchPublishSubTab(tab) {
+  document.querySelectorAll('.publish-sub-tab').forEach(btn => {
+    btn.classList.remove('active');
+    btn.style.borderBottomColor = 'transparent';
+    btn.style.color = 'var(--color-text-muted)';
+  });
+  const activeBtn = document.querySelector(`.publish-sub-tab[onclick="switchPublishSubTab('${tab}')"]`);
+  activeBtn.classList.add('active');
+  activeBtn.style.borderBottomColor = 'var(--color-primary)';
+  activeBtn.style.color = 'var(--color-text)';
+  document.getElementById('publishSubNew').style.display = tab === 'new' ? 'block' : 'none';
+  document.getElementById('publishSubList').style.display = tab === 'list' ? 'block' : 'none';
+}
+
 function switchAdminTab(tabName) {
   // 切换按钮状态
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -4554,6 +4605,7 @@ function editAlbum(id) {
   
   // 切换到发布图集标签页
   switchAdminTab('publish');
+  switchPublishSubTab('list');
   
   // 滚动到表单顶部
   document.getElementById('tab-publish').scrollIntoView({ behavior: 'smooth' });
@@ -4565,6 +4617,50 @@ function editAlbum(id) {
 }
 
 // 检测全部链接
+function filterAdminAlbums() {
+  const filterValue = document.getElementById('adminCategoryFilter').value;
+  const albums = getDB('albums');
+  const categories = getDB('categories');
+  const container = document.getElementById('adminAlbumList');
+  if (!container) return;
+  
+  const filtered = filterValue ? albums.filter(a => a.category === filterValue) : albums;
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>暂无图集</p></div>`;
+    return;
+  }
+  
+  let html = '';
+  filtered.forEach(a => {
+    const linkStatus = a.linkStatus || 'normal';
+    const statusText = linkStatus === 'normal' ? '正常' : linkStatus === 'invalid' ? '失效' : '已取消分享';
+    const catName = categories.find(c => c.id === a.category)?.name || '';
+    html += `
+      <div class="admin-item">
+        <div class="admin-item-info">
+          <div class="admin-item-title">${a.title}</div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="admin-item-price">¥${a.price} · ${a.preview.length}张${catName ? ' · ' + catName : ''}</span>
+            <span class="link-status ${linkStatus}">
+              <i class="fas fa-link"></i>${statusText}
+            </span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary" onclick="editAlbum('${a.id}')">
+            <i class="fas fa-edit"></i>编辑
+          </button>
+          <button class="btn btn-danger" onclick="del('${a.id}')">
+            <i class="fas fa-trash"></i>删除
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
 function checkAllLinks() {
   const albums = getDB('albums');
   if (albums.length === 0) {
@@ -4840,16 +4936,16 @@ function autoCheckAllLinks() {
 // ==========================================
 let heroImageData = '';
 let logoImageData = '';
-let bannerImages = [];
+let heroImageList = [];
 
-// 初始化横幅图片
-function initBannerImages() {
+function initHeroImages() {
   const heroConfig = getDB('heroConfig')[0];
-  if (heroConfig && heroConfig.banners) {
-    bannerImages = [...heroConfig.banners];
+  if (heroConfig) {
+    heroImageList = [heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean);
+    logoImageData = heroConfig.logo || '';
   }
 }
-initBannerImages();
+initHeroImages();
 
 function handleLogoUpload(event) {
   const file = event.target.files[0];
@@ -4867,73 +4963,49 @@ function handleLogoUpload(event) {
   reader.readAsDataURL(file);
 }
 
-function handleHeroUpload(event) {
+function handleHeroImageUpload(event) {
   const file = event.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
-  
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    heroImageData = e.target.result;
-    const uploadArea = document.getElementById('heroUploadArea');
-    uploadArea.innerHTML = `
-      <img src="${heroImageData}" style="max-width: 200px; max-height: 100px; margin-bottom: 0.5rem;">
-      <p style="color: var(--color-text); font-size: 0.875rem;">点击更换横幅</p>
-    `;
-  };
-  reader.readAsDataURL(file);
-}
-
-// 处理横幅上传
-function handleBannerUpload(event) {
-  const file = event.target.files[0];
-  if (!file || !file.type.startsWith('image/')) return;
-  if (bannerImages.length >= 3) {
-    alert('最多只能添加3张横幅图片');
+  if (heroImageList.length >= 3) {
+    alert('最多只能添加3张横图');
     return;
   }
-  
   const reader = new FileReader();
   reader.onload = (e) => {
-    bannerImages.push(e.target.result);
-    updateBannerUploadArea();
+    heroImageList.push(e.target.result);
+    updateHeroImageUploadArea();
   };
   reader.readAsDataURL(file);
+  event.target.value = '';
 }
 
-// 更新横幅上传区域显示
-function updateBannerUploadArea() {
-  const uploadArea = document.getElementById('bannerUploadArea');
-  if (!uploadArea) return;
-  
-  const container = uploadArea.parentElement;
+function updateHeroImageUploadArea() {
+  const container = document.getElementById('heroImagesUploadArea');
+  if (!container) return;
   let html = '';
-  
-  bannerImages.forEach((banner, index) => {
+  heroImageList.forEach((img, index) => {
     html += `
       <div class="banner-upload-item">
-        <img src="${banner}" style="max-width: 150px; max-height: 80px; margin-bottom: 0.5rem;">
-        <button class="btn btn-danger btn-sm" onclick="removeBanner(${index})">删除</button>
+        <img src="${img}" style="max-width: 150px; max-height: 80px; margin-bottom: 0.5rem;">
+        <button class="btn btn-danger btn-sm" onclick="removeHeroImage(${index})">删除</button>
       </div>
     `;
   });
-  
-  if (bannerImages.length < 3) {
+  if (heroImageList.length < 3) {
     html += `
-      <div class="upload-area" id="bannerUploadArea" onclick="document.getElementById('bannerFileInput').click()">
+      <div class="upload-area" id="heroImageUploadArea" onclick="document.getElementById('heroImageFileInput').click()">
         <i class="fas fa-plus" style="font-size: 1.5rem; color: var(--color-primary); margin-bottom: 0.5rem;"></i>
-        <p style="color: var(--color-text); font-size: 0.875rem;">添加横幅图片</p>
-        <p style="color: var(--color-text-muted); font-size: 0.75rem;">还可添加 ${3 - bannerImages.length} 张</p>
+        <p style="color: var(--color-text); font-size: 0.875rem;">添加横图</p>
+        <p style="color: var(--color-text-muted); font-size: 0.75rem;">还可添加 ${3 - heroImageList.length} 张</p>
       </div>
     `;
   }
-  
   container.innerHTML = html;
 }
 
-// 删除横幅图片
-function removeBanner(index) {
-  bannerImages.splice(index, 1);
-  updateBannerUploadArea();
+function removeHeroImage(index) {
+  heroImageList.splice(index, 1);
+  updateHeroImageUploadArea();
 }
 
 function saveHeroConfig() {
@@ -4947,9 +5019,9 @@ function saveHeroConfig() {
   const popupBtnLink = document.getElementById('popupBtnLink');
   
   const config = {
-    image: heroImageData,
+    image: heroImageList[0] || '',
+    heroImages: heroImageList.slice(1),
     logo: logoImageData,
-    banners: bannerImages,
     copyright: copyrightInput ? copyrightInput.value.trim() : '',
     filing: filingInput ? filingInput.value.trim() : '',
     security: securityInput ? securityInput.value.trim() : '',
