@@ -76,6 +76,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 0 1rem;
     }
 
     .navbar-brand {
@@ -1581,6 +1582,7 @@
       .navbar-content {
         flex-wrap: wrap;
         gap: 0.5rem;
+        padding: 0 0.75rem;
       }
 
       .navbar-brand {
@@ -2630,7 +2632,7 @@ function showSitePopup(config) {
       </div>
       <h3 style="font-size: 1.125rem; color: white; font-weight: 600; margin-bottom: 0.75rem;">${config.popupTitle || '📢 公告'}</h3>
       <p style="color: var(--color-text-muted); font-size: 0.875rem; white-space: pre-wrap; line-height: 1.7; margin-bottom: 1.5rem;">${config.popupContent}</p>
-      <button class="btn" style="width: 100%; padding: 0.75rem;" onclick="closeSitePopup(this, '${popupKey}', '${config.popupBtnLink || ''}')">${config.popupBtnText || '我知道了'}</button>
+      <button class="btn" style="width: 100%; padding: 0.75rem; text-align: center;" onclick="closeSitePopup(this, '${popupKey}', '${config.popupBtnLink || ''}')">${config.popupBtnText || '我知道了'}</button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -2765,7 +2767,7 @@ function renderDetail(root, id) {
         
         <div class="price-display">¥ ${item.price}</div>
         
-        <button class="btn" style="width: 100%; padding: 1rem; font-size: 1rem;" onclick="showAlipayModal('${item.price}', '${item.link}', '${item.id}', '${item.title}')">
+        <button class="btn" style="width: 100%; padding: 1rem; font-size: 1rem; text-align: center;" onclick="showAlipayModal('${item.price}', '${item.link}', '${item.id}', '${item.title}')">
           <i class="fas fa-alipay"></i>
           支付宝立即购买
         </button>
@@ -3328,17 +3330,6 @@ function renderAdmin(root) {
         
         <div id="publishSubNew">
           <div class="card" style="padding: 1.5rem;">
-            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-              <div style="width: 2.5rem; height: 2.5rem; background: rgba(124, 58, 237, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-plus text-primary"></i>
-              </div>
-              <div>
-                <h3 style="font-size: 1.125rem; font-weight: 600; color: white;">发布新图集</h3>
-                <p style="font-size: 0.875rem; color: var(--color-text-muted);">填写图集信息并发布</p>
-              </div>
-            </div>
-          </div>
-          
           <input id="title" class="input-field" placeholder="图集名称">
           <input id="price" class="input-field" placeholder="售价" value="9.9">
           
@@ -3500,10 +3491,12 @@ function renderAdmin(root) {
 
       <!-- 订单管理 -->
       <div id="tab-orders" class="tab-content" style="display: none;">
-        <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
-          <i class="fas fa-shopping-cart text-primary" style="margin-right: 0.5rem;"></i>订单列表
-        </h3>
-        ${orderHtml}
+        <div class="card" style="padding: 1.5rem;">
+          <h3 style="font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 1.5rem;">
+            <i class="fas fa-shopping-cart text-primary" style="margin-right: 0.5rem;"></i>订单列表
+          </h3>
+          ${orderHtml}
+        </div>
       </div>
 
       <!-- 用户管理 -->
@@ -3655,7 +3648,7 @@ function renderAdmin(root) {
                 <div style="background: var(--color-card); border-radius: 0.75rem; padding: 1.25rem; border: 1px solid var(--color-border);">
                   <h4 style="color: white; font-size: 1rem; margin-bottom: 0.75rem;">${heroConfig.popupTitle || '📢 公告'}</h4>
                   <p style="color: var(--color-text-muted); font-size: 0.8125rem; white-space: pre-wrap; line-height: 1.6;">${heroConfig.popupContent}</p>
-                  <button class="btn" style="width: 100%; margin-top: 1rem; padding: 0.5rem;">${heroConfig.popupBtnText || '我知道了'}</button>
+                  <button class="btn" style="width: 100%; margin-top: 1rem; padding: 0.5rem; text-align: center;">${heroConfig.popupBtnText || '我知道了'}</button>
                 </div>
               </div>
               ` : ''}
@@ -5209,7 +5202,7 @@ function showAlipayModal(amount, link, albumId, albumTitle) {
           <div class="countdown-value" id="countdown">05:00</div>
         </div>
         
-        <button class="btn" style="width: 100%; margin-top: 1rem;" onclick="simulatePayment()">
+        <button class="btn" style="width: 100%; margin-top: 1rem; text-align: center;" onclick="simulatePayment()">
           <i class="fas fa-check-circle"></i>
           确认已支付
         </button>
