@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>轻图社-资源站</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -597,6 +597,7 @@
       background: rgba(10, 10, 10, 0.5);
       border-radius: 0.75rem;
       margin-bottom: 1rem;
+      -webkit-overflow-scrolling: touch;
     }
 
     .chat-message {
@@ -609,6 +610,14 @@
     }
 
     .chat-message.admin {
+      justify-content: flex-start;
+    }
+
+    .chat-message.self {
+      justify-content: flex-end;
+    }
+
+    .chat-message.other {
       justify-content: flex-start;
     }
 
@@ -630,6 +639,19 @@
     }
 
     .chat-message.admin .chat-bubble {
+      background: var(--color-card);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-bottom-left-radius: 0.25rem;
+    }
+
+    .chat-message.self .chat-bubble {
+      background: var(--color-primary);
+      color: white;
+      border-bottom-right-radius: 0.25rem;
+    }
+
+    .chat-message.other .chat-bubble {
       background: var(--color-card);
       color: var(--color-text);
       border: 1px solid var(--color-border);
@@ -1171,13 +1193,16 @@
       bottom: 0;
       left: 0;
       right: 0;
-      padding: 1rem;
+      padding: 0.75rem 1rem;
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
       background: var(--color-card);
       border-top: 1px solid var(--color-border);
       display: flex;
       gap: 0.5rem;
       align-items: center;
       z-index: 50;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
 
     .chat-input {
@@ -2351,7 +2376,13 @@ function renderIndex(root, categoryId = '') {
 
   root.innerHTML = html;
   
-  // 启动轮播
+  if (heroConfig.popupEnabled && heroConfig.popupContent) {
+    const popupKey = 'popup_closed_' + (heroConfig.popupTitle || '').replace(/\s/g, '') + '_' + heroConfig.popupContent.length;
+    if (!localStorage.getItem(popupKey)) {
+      setTimeout(() => showSitePopup(heroConfig), 500);
+    }
+  }
+  
   if (banners.length > 1) {
     startBannerCarousel();
   }
@@ -2593,6 +2624,40 @@ function submitReview(albumId) {
 // 轮播相关函数
 let bannerInterval = null;
 
+function showSitePopup(config) {
+  const popupKey = 'popup_closed_' + (config.popupTitle || '').replace(/\s/g, '') + '_' + config.popupContent.length;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show';
+  overlay.style.cssText = 'animation: fadeIn 0.3s ease;';
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <div style="width: 3.5rem; height: 3.5rem; background: linear-gradient(135deg, var(--color-primary), #a78bfa); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+        <i class="fas fa-bullhorn text-white text-lg"></i>
+      </div>
+      <h3 style="font-size: 1.125rem; color: white; font-weight: 600; margin-bottom: 0.75rem;">${config.popupTitle || '📢 公告'}</h3>
+      <p style="color: var(--color-text-muted); font-size: 0.875rem; white-space: pre-wrap; line-height: 1.7; margin-bottom: 1.5rem;">${config.popupContent}</p>
+      <button class="btn" style="width: 100%; padding: 0.75rem;" onclick="closeSitePopup(this, '${popupKey}', '${config.popupBtnLink || ''}')">${config.popupBtnText || '我知道了'}</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function closeSitePopup(btn, popupKey, link) {
+  const overlay = btn.closest('.modal-overlay');
+  if (overlay) {
+    overlay.style.animation = 'fadeOut 0.2s ease';
+    setTimeout(() => overlay.remove(), 200);
+  }
+  localStorage.setItem(popupKey, '1');
+  if (link) {
+    if (link.startsWith('#')) {
+      window.location.hash = link;
+    } else if (link.startsWith('http')) {
+      window.open(link, '_blank');
+    }
+  }
+}
+
 function startBannerCarousel() {
   if (bannerInterval) clearInterval(bannerInterval);
   bannerInterval = setInterval(() => {
@@ -2800,10 +2865,10 @@ function renderAuth(root) {
         
         <!-- 选项卡 -->
         <div style="display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border);">
-          <button class="auth-tab active" onclick="switchAuthTab('login')" style="flex: 1; padding: 0.75rem; background: none; border: none; color: var(--color-text); font-size: 0.875rem; border-bottom: 2px solid var(--color-primary);">
+          <button class="auth-tab active" onclick="switchAuthTab('login')" style="flex: 1; padding: 0.75rem; background: none; border: none; color: var(--color-text); font-size: 0.875rem; border-bottom: 2px solid var(--color-primary); transition: all 0.2s;">
             登录
           </button>
-          <button class="auth-tab" onclick="switchAuthTab('register')" style="flex: 1; padding: 0.75rem; background: none; border: none; color: var(--color-text-muted); font-size: 0.875rem;">
+          <button class="auth-tab" onclick="switchAuthTab('register')" style="flex: 1; padding: 0.75rem; background: none; border: none; color: var(--color-text-muted); font-size: 0.875rem; border-bottom: 2px solid transparent; transition: all 0.2s;">
             注册
           </button>
         </div>
@@ -3166,7 +3231,7 @@ function renderAdmin(root) {
   } else {
     currentMessages.sort((a, b) => a.time - b.time).forEach(m => {
       messageHtml += `
-        <div class="chat-message ${m.isAdmin ? 'admin' : 'user'}">
+        <div class="chat-message ${m.isAdmin ? 'self' : 'other'}">
           <div>
             <div class="chat-bubble">${m.content}</div>
             <div class="chat-timestamp">${formatTime(m.time)}</div>
@@ -3300,9 +3365,9 @@ function renderAdmin(root) {
             <div class="upload-preview" id="uploadPreview"></div>
           </div>
           
-          <input id="link" class="input-field" placeholder="网盘链接">
-          <input id="extractCode" class="input-field" placeholder="提取码（可选）">
-          <input id="password" class="input-field" placeholder="解压码（可选）">
+          <input id="link" class="input-field" placeholder="网盘链接" autocomplete="off">
+          <input id="extractCode" class="input-field" placeholder="提取码（可选）" autocomplete="off">
+          <input id="password" class="input-field" placeholder="解压码（可选）" autocomplete="off" data-lpignore="true" data-form-type="other">
           
           <div class="form-group">
             <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
@@ -3534,6 +3599,44 @@ function renderAdmin(root) {
               <i class="fas fa-shield-alt" style="margin-right: 0.25rem;"></i>网络安全提示
             </label>
             <input id="securityInput" class="input-field" placeholder="如：本站内容仅供学习交流，严禁用于商业用途" value="${heroConfig.security || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
+              <i class="fas fa-bullhorn" style="margin-right: 0.25rem;"></i>首页弹窗公告
+            </label>
+            <div style="background: rgba(10,10,10,0.5); border: 1px solid var(--color-border); border-radius: 0.75rem; padding: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: var(--color-text);">
+                  <input type="checkbox" id="popupEnabled" ${heroConfig.popupEnabled ? 'checked' : ''} style="accent-color: var(--color-primary); width: 1rem; height: 1rem;">
+                  启用弹窗公告
+                </label>
+              </div>
+              <div style="margin-bottom: 0.75rem;">
+                <input id="popupTitle" class="input-field" placeholder="弹窗标题（如：📢 重要通知）" value="${heroConfig.popupTitle || ''}">
+              </div>
+              <div style="margin-bottom: 0.75rem;">
+                <textarea id="popupContent" class="input-field" rows="4" placeholder="弹窗内容（支持换行）&#10;&#10;示例：&#10;🎉 新图集已上线！&#10;📦 资源持续更新中&#10;💡 有问题请联系站主" style="resize: vertical; min-height: 80px;">${heroConfig.popupContent || ''}</textarea>
+              </div>
+              <div style="margin-bottom: 0.75rem;">
+                <label style="display: block; color: var(--color-text-muted); font-size: 0.75rem; margin-bottom: 0.375rem;">弹窗按钮文案</label>
+                <input id="popupBtnText" class="input-field" placeholder="如：我知道了、前往查看" value="${heroConfig.popupBtnText || '我知道了'}">
+              </div>
+              <div style="margin-bottom: 0.75rem;">
+                <label style="display: block; color: var(--color-text-muted); font-size: 0.75rem; margin-bottom: 0.375rem;">按钮跳转链接（可选，留空则仅关闭弹窗）</label>
+                <input id="popupBtnLink" class="input-field" placeholder="如：#detail=图集ID 或 https://..." value="${heroConfig.popupBtnLink || ''}">
+              </div>
+              ${heroConfig.popupEnabled && heroConfig.popupContent ? `
+              <div style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 0.5rem;">
+                <p style="font-size: 0.75rem; color: var(--color-primary); margin-bottom: 0.5rem;"><i class="fas fa-eye" style="margin-right: 0.25rem;"></i>弹窗预览</p>
+                <div style="background: var(--color-card); border-radius: 0.75rem; padding: 1.25rem; border: 1px solid var(--color-border);">
+                  <h4 style="color: white; font-size: 1rem; margin-bottom: 0.75rem;">${heroConfig.popupTitle || '📢 公告'}</h4>
+                  <p style="color: var(--color-text-muted); font-size: 0.8125rem; white-space: pre-wrap; line-height: 1.6;">${heroConfig.popupContent}</p>
+                  <button class="btn" style="width: 100%; margin-top: 1rem; padding: 0.5rem;">${heroConfig.popupBtnText || '我知道了'}</button>
+                </div>
+              </div>
+              ` : ''}
+            </div>
           </div>
           
           <button class="btn" style="width: 100%;" onclick="saveHeroConfig()">
@@ -3942,16 +4045,15 @@ function sendAdminReply() {
   
   input.value = '';
   
-  // 更新消息列表
   const container = document.getElementById('adminChatContainer');
-  container.innerHTML += `
-    <div class="chat-message admin">
+  container.insertAdjacentHTML('beforeend', `
+    <div class="chat-message self">
       <div>
         <div class="chat-bubble">${content}</div>
         <div class="chat-timestamp">${formatTime(Date.now())}</div>
       </div>
     </div>
-  `;
+  `);
   
   scrollChatToBottom('adminChatContainer');
 }
@@ -3979,14 +4081,14 @@ function sendUserMessage() {
   input.value = '';
   
   const container = document.getElementById('userChatContainer');
-  container.innerHTML += `
+  container.insertAdjacentHTML('beforeend', `
     <div class="chat-message user">
       <div>
         <div class="chat-bubble">${content}</div>
         <div class="chat-timestamp">${formatTime(Date.now())}</div>
       </div>
     </div>
-  `;
+  `);
   
   scrollChatToBottom('userChatContainer');
 }
@@ -4129,8 +4231,15 @@ function changeNickname() {
 }
 
 function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector(`.auth-tab[onclick="switchAuthTab('${tab}')"]`).classList.add('active');
+  document.querySelectorAll('.auth-tab').forEach(t => {
+    t.classList.remove('active');
+    t.style.borderBottomColor = 'transparent';
+    t.style.color = 'var(--color-text-muted)';
+  });
+  const activeTab = document.querySelector(`.auth-tab[onclick="switchAuthTab('${tab}')"]`);
+  activeTab.classList.add('active');
+  activeTab.style.borderBottomColor = 'var(--color-primary)';
+  activeTab.style.color = 'var(--color-text)';
   
   document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
@@ -4562,16 +4671,15 @@ function sendAdminReplyToUser() {
   
   input.value = '';
   
-  // 更新消息列表
   const container = document.getElementById('adminChatContainer');
-  container.innerHTML += `
-    <div class="chat-message admin">
+  container.insertAdjacentHTML('beforeend', `
+    <div class="chat-message self">
       <div>
         <div class="chat-bubble">${content}</div>
         <div class="chat-timestamp">${formatTime(Date.now())}</div>
       </div>
     </div>
-  `;
+  `);
   
   scrollChatToBottom('adminChatContainer');
 }
@@ -4633,14 +4741,14 @@ function sendUserMessage() {
   input.value = '';
   
   const container = document.getElementById('userChatContainer');
-  container.innerHTML += `
+  container.insertAdjacentHTML('beforeend', `
     <div class="chat-message user">
       <div>
         <div class="chat-bubble">${content}</div>
         <div class="chat-timestamp">${formatTime(Date.now())}</div>
       </div>
     </div>
-  `;
+  `);
   
   scrollChatToBottom('userChatContainer');
 }
@@ -4832,6 +4940,11 @@ function saveHeroConfig() {
   const copyrightInput = document.getElementById('copyrightInput');
   const filingInput = document.getElementById('filingInput');
   const securityInput = document.getElementById('securityInput');
+  const popupEnabled = document.getElementById('popupEnabled');
+  const popupTitle = document.getElementById('popupTitle');
+  const popupContent = document.getElementById('popupContent');
+  const popupBtnText = document.getElementById('popupBtnText');
+  const popupBtnLink = document.getElementById('popupBtnLink');
   
   const config = {
     image: heroImageData,
@@ -4839,7 +4952,12 @@ function saveHeroConfig() {
     banners: bannerImages,
     copyright: copyrightInput ? copyrightInput.value.trim() : '',
     filing: filingInput ? filingInput.value.trim() : '',
-    security: securityInput ? securityInput.value.trim() : ''
+    security: securityInput ? securityInput.value.trim() : '',
+    popupEnabled: popupEnabled ? popupEnabled.checked : false,
+    popupTitle: popupTitle ? popupTitle.value.trim() : '',
+    popupContent: popupContent ? popupContent.value.trim() : '',
+    popupBtnText: popupBtnText ? popupBtnText.value.trim() : '我知道了',
+    popupBtnLink: popupBtnLink ? popupBtnLink.value.trim() : ''
   };
   
   setDB('heroConfig', [config]);
@@ -5155,8 +5273,7 @@ function copyLink(url, button) {
 // ==========================================
 // 启动
 // ==========================================
-window.onload = async function() {
-  await cloudInit();
+window.onload = function() {
   const overlay = document.getElementById('loadingOverlay');
   if (overlay) {
     overlay.style.opacity = '0';
@@ -5164,7 +5281,55 @@ window.onload = async function() {
   }
   renderPage();
   window.addEventListener('hashchange', renderPage);
+  
+  cloudInitAsync();
 };
+
+async function cloudInitAsync() {
+  try {
+    await cloudInit();
+    showUpdateNotification();
+  } catch (e) {
+    console.warn('云端同步完成（使用本地缓存）');
+  }
+}
+
+function showUpdateNotification() {
+  const existingToast = document.getElementById('syncToast');
+  if (existingToast) existingToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.id = 'syncToast';
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 3rem;
+    right: 1rem;
+    background: linear-gradient(135deg, var(--color-primary), #6d28d9);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: slideUp 0.3s ease-out;
+    cursor: pointer;
+  `;
+  toast.innerHTML = `
+    <i class="fas fa-cloud-download-alt"></i>
+    <span style="font-size: 0.875rem;">数据已更新，点击刷新</span>
+  `;
+  toast.onclick = function() {
+    window.location.reload();
+  };
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}
 </script>
 </body>
 </html>
