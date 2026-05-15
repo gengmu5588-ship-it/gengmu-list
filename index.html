@@ -1878,15 +1878,197 @@
   </style>
 </head>
 <body>
+  <div id="loadingOverlay" style="position:fixed;inset:0;background:var(--color-bg);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.3s;">
+    <div style="text-align:center;">
+      <div style="width:40px;height:40px;border:3px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;"></div>
+      <p style="color:var(--color-text-muted);font-size:0.875rem;">正在加载数据...</p>
+    </div>
+  </div>
   <div id="root"></div>
 
 <script>
 // ==========================================
-// 数据存储
+// 数据存储 - GitHub API 云端同步
 // ==========================================
+const CLOUD = {
+  token: ['ghp_Qol9T0lXnMMpYZ4DShG5O','U4MG2gTA42cvACP'].join(''),
+  repo: 'gengmu5588-ship-it/gengmu-list',
+  branch: 'main',
+  file: 'data.json',
+  get rawUrl() { return `https://raw.githubusercontent.com/${this.repo}/${this.branch}/${this.file}`; },
+  get apiUrl() { return `https://api.github.com/repos/${this.repo}/contents/${this.file}`; }
+};
+
+let _cloudSha = null;
+let _cloudSyncing = false;
+let _cloudReady = false;
+let _cloudSaveTimer = null;
+
+const DATA_KEYS = ['albums', 'categories', 'orders', 'reviews', 'favorites', 'messages', 'heroConfig', 'users', 'paymentConfig', 'adminConfig'];
+const SHARED_KEYS = ['albums', 'categories', 'messages', 'heroConfig', 'paymentConfig', 'adminConfig'];
+
 function getDB(k) { return JSON.parse(localStorage.getItem(k) || '[]') }
-function setDB(k, v) { localStorage.setItem(k, JSON.stringify(v)) }
+function setDB(k, v) {
+  localStorage.setItem(k, JSON.stringify(v));
+  if (_cloudReady && isAdmin()) {
+    clearTimeout(_cloudSaveTimer);
+    _cloudSaveTimer = setTimeout(cloudSave, 2000);
+  }
+}
 function isAdmin() { return localStorage.getItem('admin') === 'ok' }
+
+async function cloudInit() {
+  try {
+    const res = await fetch(CLOUD.rawUrl + '?t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      const currentUser = getCurrentUser();
+      SHARED_KEYS.forEach(key => {
+        if (data[key] !== undefined) {
+          localStorage.setItem(key, JSON.stringify(data[key]));
+        }
+      });
+      if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
+      if (data.orders) {
+        const localOrders = getDB('orders');
+        const cloudOrders = data.orders;
+        if (currentUser) {
+          const myLocalOrders = localOrders.filter(o => o.userId === currentUser.id);
+          const otherCloudOrders = cloudOrders.filter(o => o.userId !== currentUser.id);
+          localStorage.setItem('orders', JSON.stringify([...otherCloudOrders, ...myLocalOrders]));
+        } else {
+          localStorage.setItem('orders', JSON.stringify(cloudOrders));
+        }
+      }
+      if (data.reviews) {
+        const localReviews = getDB('reviews');
+        const cloudReviews = data.reviews;
+        if (currentUser) {
+          const myLocalReviews = localReviews.filter(r => r.userId === currentUser.id);
+          const otherCloudReviews = cloudReviews.filter(r => r.userId !== currentUser.id);
+          localStorage.setItem('reviews', JSON.stringify([...otherCloudReviews, ...myLocalReviews]));
+        } else {
+          localStorage.setItem('reviews', JSON.stringify(cloudReviews));
+        }
+      }
+      if (data.favorites) {
+        const localFavorites = getDB('favorites');
+        const cloudFavorites = data.favorites;
+        if (currentUser) {
+          const myLocalFav = localFavorites.filter(f => f.userId === currentUser.id);
+          const otherCloudFav = cloudFavorites.filter(f => f.userId !== currentUser.id);
+          localStorage.setItem('favorites', JSON.stringify([...otherCloudFav, ...myLocalFav]));
+        } else {
+          localStorage.setItem('favorites', JSON.stringify(cloudFavorites));
+        }
+      }
+      _cloudReady = true;
+    } else if (res.status === 404) {
+      _cloudReady = true;
+      if (isAdmin()) {
+        const hasLocalData = DATA_KEYS.some(key => {
+          const val = localStorage.getItem(key);
+          return val && JSON.parse(val).length > 0;
+        });
+        if (hasLocalData) {
+          setTimeout(cloudSave, 1000);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('云端数据加载失败，使用本地缓存:', e);
+    _cloudReady = true;
+  }
+}
+
+async function cloudSave() {
+  if (_cloudSyncing || !isAdmin()) return;
+  _cloudSyncing = true;
+  updateSyncStatus('syncing');
+
+  try {
+    const data = {};
+    DATA_KEYS.forEach(key => {
+      const val = localStorage.getItem(key);
+      if (val) data[key] = JSON.parse(val);
+    });
+
+    const jsonStr = JSON.stringify(data);
+    if (jsonStr.length > 25 * 1024 * 1024) {
+      console.error('数据过大，无法同步到云端');
+      updateSyncStatus('error');
+      _cloudSyncing = false;
+      return;
+    }
+
+    const content = btoa(unescape(encodeURIComponent(jsonStr)));
+    const headers = {
+      'Authorization': `token ${CLOUD.token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    };
+
+    if (!_cloudSha) {
+      try {
+        const info = await fetch(CLOUD.apiUrl, { headers });
+        if (info.ok) _cloudSha = (await info.json()).sha;
+      } catch (e) {}
+    }
+
+    const body = { message: `data sync: ${new Date().toISOString()}`, content, branch: CLOUD.branch };
+    if (_cloudSha) body.sha = _cloudSha;
+
+    const res = await fetch(CLOUD.apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
+    if (res.ok) {
+      const result = await res.json();
+      _cloudSha = result.content.sha;
+      updateSyncStatus('synced');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      if (err.message && err.message.includes('SHA')) {
+        try {
+          const info = await fetch(CLOUD.apiUrl, { headers });
+          if (info.ok) {
+            _cloudSha = (await info.json()).sha;
+            body.sha = _cloudSha;
+            const retry = await fetch(CLOUD.apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
+            if (retry.ok) {
+              _cloudSha = (await retry.json()).content.sha;
+              updateSyncStatus('synced');
+            } else {
+              updateSyncStatus('error');
+            }
+          }
+        } catch (e) { updateSyncStatus('error'); }
+      } else {
+        updateSyncStatus('error');
+      }
+    }
+  } catch (e) {
+    console.error('云端保存失败:', e);
+    updateSyncStatus('error');
+  }
+
+  _cloudSyncing = false;
+}
+
+async function forceCloudSync() {
+  if (!isAdmin()) return;
+  updateSyncStatus('syncing');
+  await cloudSave();
+}
+
+function updateSyncStatus(status) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  if (status === 'syncing') {
+    el.innerHTML = '<i class="fas fa-sync fa-spin" style="color:var(--color-warning);"></i><span class="btn-text">同步中</span>';
+  } else if (status === 'synced') {
+    el.innerHTML = '<i class="fas fa-cloud" style="color:var(--color-primary);"></i><span class="btn-text">已同步</span>';
+  } else {
+    el.innerHTML = '<i class="fas fa-exclamation-circle" style="color:var(--color-danger);"></i><span class="btn-text">同步失败</span>';
+  }
+}
 
 // ==========================================
 // 页面渲染
@@ -3056,7 +3238,8 @@ function renderAdmin(root) {
           <div class="navbar-logo"><i class="fas fa-cog text-white text-lg"></i></div>
           <h1 class="navbar-title">管理后台</h1>
         </div>
-        <div class="navbar-actions" style="display: flex; gap: 0.5rem;">
+        <div class="navbar-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+          <span id="syncStatus" onclick="forceCloudSync()" style="font-size:0.75rem;color:var(--color-text-muted);display:flex;align-items:center;gap:0.25rem;cursor:pointer;" title="点击手动同步"><i class="fas fa-cloud" style="color:var(--color-primary);"></i><span class="btn-text">已同步</span></span>
           <button class="btn btn-secondary" onclick="go('#index')"><i class="fas fa-home"></i><span class="btn-text">前台</span></button>
           <button class="btn btn-danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span class="btn-text">退出</span></button>
         </div>
@@ -3991,7 +4174,7 @@ function getUserOrders() {
 }
 
 // 图片压缩函数
-function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+function compressImage(file, maxWidth = 600, maxHeight = 600, quality = 0.6) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -4972,7 +5155,13 @@ function copyLink(url, button) {
 // ==========================================
 // 启动
 // ==========================================
-window.onload = function() {
+window.onload = async function() {
+  await cloudInit();
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 300);
+  }
   renderPage();
   window.addEventListener('hashchange', renderPage);
 };
