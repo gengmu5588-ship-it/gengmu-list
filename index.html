@@ -5002,31 +5002,37 @@ function removeHeroImage(index) {
 }
 
 function saveHeroConfig() {
-  const copyrightInput = document.getElementById('copyrightInput');
-  const filingInput = document.getElementById('filingInput');
-  const securityInput = document.getElementById('securityInput');
-  const popupEnabled = document.getElementById('popupEnabled');
-  const popupTitle = document.getElementById('popupTitle');
-  const popupContent = document.getElementById('popupContent');
-  const popupBtnText = document.getElementById('popupBtnText');
-  const popupBtnLink = document.getElementById('popupBtnLink');
-  
-  const config = {
-    image: heroImageList[0] || '',
-    heroImages: heroImageList.slice(1),
-    logo: logoImageData,
-    copyright: copyrightInput ? copyrightInput.value.trim() : '',
-    filing: filingInput ? filingInput.value.trim() : '',
-    security: securityInput ? securityInput.value.trim() : '',
-    popupEnabled: popupEnabled ? popupEnabled.checked : false,
-    popupTitle: popupTitle ? popupTitle.value.trim() : '',
-    popupContent: popupContent ? popupContent.value.trim() : '',
-    popupBtnText: popupBtnText ? popupBtnText.value.trim() : '我知道了',
-    popupBtnLink: popupBtnLink ? popupBtnLink.value.trim() : ''
-  };
-  
-  setDB('heroConfig', [config]);
-  alert('首页装扮配置保存成功！');
+  try {
+    const copyrightInput = document.getElementById('copyrightInput');
+    const filingInput = document.getElementById('filingInput');
+    const securityInput = document.getElementById('securityInput');
+    const popupEnabled = document.getElementById('popupEnabled');
+    const popupTitle = document.getElementById('popupTitle');
+    const popupContent = document.getElementById('popupContent');
+    const popupBtnText = document.getElementById('popupBtnText');
+    const popupBtnLink = document.getElementById('popupBtnLink');
+    
+    const existingConfig = getDB('heroConfig')[0] || {};
+    
+    const config = {
+      image: heroImageList.length > 0 ? heroImageList[0] : (existingConfig.image || ''),
+      heroImages: heroImageList.length > 1 ? heroImageList.slice(1) : (existingConfig.heroImages || []),
+      logo: logoImageData || existingConfig.logo || '',
+      copyright: copyrightInput ? copyrightInput.value.trim() : (existingConfig.copyright || ''),
+      filing: filingInput ? filingInput.value.trim() : (existingConfig.filing || ''),
+      security: securityInput ? securityInput.value.trim() : (existingConfig.security || ''),
+      popupEnabled: popupEnabled ? popupEnabled.checked : (existingConfig.popupEnabled || false),
+      popupTitle: popupTitle ? popupTitle.value.trim() : (existingConfig.popupTitle || ''),
+      popupContent: popupContent ? popupContent.value.trim() : (existingConfig.popupContent || ''),
+      popupBtnText: popupBtnText ? popupBtnText.value.trim() : (existingConfig.popupBtnText || '我知道了'),
+      popupBtnLink: popupBtnLink ? popupBtnLink.value.trim() : (existingConfig.popupBtnLink || '')
+    };
+    
+    setDB('heroConfig', [config]);
+    alert('配置保存成功！');
+  } catch(e) {
+    alert('保存失败：' + e.message);
+  }
 }
 
 // ==========================================
