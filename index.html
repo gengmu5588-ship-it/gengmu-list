@@ -4028,16 +4028,14 @@ function handleQrUpload(event) {
   const file = event.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
   
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    qrCodeData = e.target.result;
+  compressImage(file, 300, 300, 0.7).then(data => {
+    qrCodeData = data;
     const uploadArea = document.getElementById('qrUploadArea');
     uploadArea.innerHTML = `
       <img src="${qrCodeData}" style="max-width: 150px; max-height: 150px; margin-bottom: 0.5rem;">
       <p style="color: var(--color-text); font-size: 0.875rem;">点击更换收款码</p>
     `;
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function savePaymentConfig() {
@@ -4944,16 +4942,14 @@ function handleLogoUpload(event) {
   const file = event.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
   
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    logoImageData = e.target.result;
+  compressImage(file, 200, 200, 0.7).then(data => {
+    logoImageData = data;
     const uploadArea = document.getElementById('logoUploadArea');
     uploadArea.innerHTML = `
       <img src="${logoImageData}" style="max-width: 80px; max-height: 80px; margin-bottom: 0.5rem;">
       <p style="color: var(--color-text); font-size: 0.875rem;">点击更换Logo</p>
     `;
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function handleHeroImageUpload(event) {
@@ -4963,12 +4959,10 @@ function handleHeroImageUpload(event) {
     alert('最多只能添加3张横图');
     return;
   }
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    heroImageList.push(e.target.result);
+  compressImage(file, 1200, 400, 0.7).then(data => {
+    heroImageList.push(data);
     updateHeroImageUploadArea();
-  };
-  reader.readAsDataURL(file);
+  });
   event.target.value = '';
 }
 
@@ -5000,6 +4994,63 @@ function removeHeroImage(index) {
   heroImageList.splice(index, 1);
   updateHeroImageUploadArea();
 }
+
+function compressExistingBase64(dataUrl, maxWidth, maxHeight, quality) {
+  return new Promise(resolve => {
+    if (!dataUrl || !dataUrl.startsWith('data:image')) { resolve(dataUrl); return; }
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
+      if (h > maxHeight) { w = (w * maxHeight) / h; h = maxHeight; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function cleanupStorageQuota() {
+  try {
+    const heroConfig = getDB('heroConfig')[0];
+    if (heroConfig) {
+      let changed = false;
+      if (heroConfig.logo) {
+        const compressed = await compressExistingBase64(heroConfig.logo, 200, 200, 0.7);
+        if (compressed !== heroConfig.logo) { heroConfig.logo = compressed; changed = true; }
+      }
+      if (heroConfig.image) {
+        const compressed = await compressExistingBase64(heroConfig.image, 1200, 400, 0.7);
+        if (compressed !== heroConfig.image) { heroConfig.image = compressed; changed = true; }
+      }
+      if (heroConfig.heroImages && heroConfig.heroImages.length) {
+        for (let i = 0; i < heroConfig.heroImages.length; i++) {
+          const compressed = await compressExistingBase64(heroConfig.heroImages[i], 1200, 400, 0.7);
+          if (compressed !== heroConfig.heroImages[i]) { heroConfig.heroImages[i] = compressed; changed = true; }
+        }
+      }
+      if (changed) {
+        setDB('heroConfig', [heroConfig]);
+        console.log('已自动压缩首页装扮图片数据');
+      }
+    }
+    const paymentConfig = getDB('paymentConfig')[0];
+    if (paymentConfig && paymentConfig.qrCode) {
+      const compressed = await compressExistingBase64(paymentConfig.qrCode, 300, 300, 0.7);
+      if (compressed !== paymentConfig.qrCode) {
+        paymentConfig.qrCode = compressed;
+        setDB('paymentConfig', [paymentConfig]);
+        console.log('已自动压缩收款码图片数据');
+      }
+    }
+  } catch(e) {
+    console.warn('清理存储空间时出错:', e);
+  }
+}
+cleanupStorageQuota();
 
 function saveHeroConfig() {
   try {
