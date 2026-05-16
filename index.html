@@ -52,6 +52,76 @@
       50% { opacity: 0.7; }
     }
 
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes thinkingDot {
+      0%, 20% { opacity: 0; }
+      40% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .skeleton-card {
+      background: var(--color-card);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+    }
+
+    .skeleton-img {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: linear-gradient(90deg, var(--color-card) 25%, var(--color-card-hover) 50%, var(--color-card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    .skeleton-text {
+      height: 0.875rem;
+      border-radius: 0.25rem;
+      background: linear-gradient(90deg, var(--color-card) 25%, var(--color-card-hover) 50%, var(--color-card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      margin: 0.5rem 0.75rem;
+    }
+
+    .skeleton-text-short {
+      width: 40%;
+    }
+
+    .skeleton-text-price {
+      width: 25%;
+    }
+
+    .thinking-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 2rem;
+      color: var(--color-text-muted);
+      font-size: 0.875rem;
+    }
+
+    .thinking-indicator .dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      animation: thinkingDot 1.4s infinite;
+    }
+
+    .thinking-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+
     .animate-fade-in {
       animation: fadeIn 0.5s ease-out forwards;
     }
@@ -2293,7 +2363,11 @@ function renderIndex(root, categoryId = '') {
         </div>
       </div>
 
-      <div class="grid-gallery">
+      <div class="grid-gallery" id="galleryGrid">
+        <div class="thinking-indicator" id="galleryLoading">
+          <i class="fas fa-brain" style="color: var(--color-primary);"></i>
+          AI Thinking<span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </div>
   `;
 
   if (paginatedAlbums.length === 0) {
@@ -2304,15 +2378,27 @@ function renderIndex(root, categoryId = '') {
       </div>
     `;
   } else {
+    const skeletonCount = Math.min(paginatedAlbums.length, 6);
+    for (let i = 0; i < skeletonCount; i++) {
+      html += `
+        <div class="skeleton-card" id="skeleton_${i}">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-text"></div>
+          <div class="skeleton-text skeleton-text-short"></div>
+          <div class="skeleton-text skeleton-text-price" style="margin-bottom: 0.75rem;"></div>
+        </div>
+      `;
+    }
+
     paginatedAlbums.forEach((al, index) => {
       const albumReviews = reviews.filter(r => r.albumId === al.id);
       const favCount = favorites.filter(f => f.albumId === al.id).length;
       const isFavorited = user ? favorites.some(f => f.albumId === al.id && f.userId === user.id) : false;
       const canReview = purchasedAlbumIds.has(al.id);
       html += `
-        <div class="card animate-slide-up" style="animation-delay: ${index * 0.1}s" onclick="openAlbum('${al.id}')">
+        <div class="card animate-slide-up album-card-hidden" data-album-index="${index}" style="display:none;animation-delay: ${index * 0.1}s" onclick="openAlbum('${al.id}')">
           <div class="card-image watermark">
-            <img src="${al.cover}" alt="${al.title}">
+            <img src="${al.cover}" alt="${al.title}" onload="onAlbumImageLoaded(this)">
             <div class="card-overlay"></div>
           </div>
           <div class="card-content">
@@ -2374,6 +2460,18 @@ function renderIndex(root, categoryId = '') {
 
   root.innerHTML = html;
   
+  if (paginatedAlbums.length > 0) {
+    setTimeout(() => {
+      const loading = document.getElementById('galleryLoading');
+      if (loading) loading.remove();
+      document.querySelectorAll('.skeleton-card').forEach(s => s.remove());
+      document.querySelectorAll('.album-card-hidden').forEach(card => {
+        card.style.display = '';
+        card.classList.remove('album-card-hidden');
+      });
+    }, 800);
+  }
+  
   if (heroConfig.popupEnabled && heroConfig.popupContent) {
     const popupKey = 'popup_closed_' + (heroConfig.popupTitle || '').replace(/\s/g, '') + '_' + heroConfig.popupContent.length;
     if (!localStorage.getItem(popupKey)) {
@@ -2384,6 +2482,17 @@ function renderIndex(root, categoryId = '') {
   const heroImages = [heroConfig.image, ...(heroConfig.heroImages || [])].filter(Boolean);
   if (heroImages.length > 1) {
     startHeroBannerCarousel();
+  }
+}
+
+function onAlbumImageLoaded(img) {
+  const card = img.closest('.card');
+  if (card) {
+    const index = parseInt(card.dataset.albumIndex);
+    const skeleton = document.getElementById('skeleton_' + index);
+    if (skeleton) skeleton.remove();
+    card.style.display = '';
+    card.classList.remove('album-card-hidden');
   }
 }
 
@@ -3357,8 +3466,9 @@ function renderAdmin(root) {
           </div>
           
           <input id="link" class="input-field" placeholder="网盘链接" autocomplete="off">
-          <input id="extractCode" class="input-field" placeholder="提取码（可选）" autocomplete="off">
-          <input id="password" class="input-field" placeholder="解压码（可选）" autocomplete="off" data-lpignore="true" data-form-type="other">
+          <input style="display:none;" tabindex="-1" autocomplete="new-password">
+          <input id="extractCode" class="input-field" placeholder="提取码（可选）" autocomplete="new-password" data-lpignore="true" data-form-type="other">
+          <input id="password" class="input-field" placeholder="解压码（可选）" autocomplete="new-password" data-lpignore="true" data-form-type="other">
           
           <div class="form-group">
             <label style="display: block; color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: 0.5rem;">
