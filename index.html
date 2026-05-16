@@ -2364,10 +2364,6 @@ function renderIndex(root, categoryId = '') {
       </div>
 
       <div class="grid-gallery" id="galleryGrid">
-        <div class="thinking-indicator" id="galleryLoading">
-          <i class="fas fa-brain" style="color: var(--color-primary);"></i>
-          AI Thinking<span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        </div>
   `;
 
   if (paginatedAlbums.length === 0) {
@@ -2378,6 +2374,12 @@ function renderIndex(root, categoryId = '') {
       </div>
     `;
   } else {
+    html += `
+      <div class="thinking-indicator" id="galleryLoading" style="grid-column: 1 / -1;">
+        <i class="fas fa-brain" style="color: var(--color-primary);"></i>
+        AI Thinking<span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+    `;
     const skeletonCount = Math.min(paginatedAlbums.length, 6);
     for (let i = 0; i < skeletonCount; i++) {
       html += `
