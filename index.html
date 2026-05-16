@@ -122,6 +122,150 @@
     .thinking-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
     .thinking-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
 
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .lightbox-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .lightbox-counter {
+      position: absolute;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.7);
+      font-size: 0.875rem;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      transition: background 0.2s;
+    }
+
+    .lightbox-close:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 2.5rem;
+      height: 2.5rem;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      transition: background 0.2s;
+    }
+
+    .lightbox-nav:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .lightbox-prev {
+      left: 1rem;
+    }
+
+    .lightbox-next {
+      right: 1rem;
+    }
+
+    .lightbox-img-wrapper {
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: pan-y;
+    }
+
+    .lightbox-img-wrapper img {
+      max-width: 100%;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 0.25rem;
+      transition: transform 0.3s ease;
+    }
+
+    .preview-card {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .preview-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0);
+      transition: background 0.2s;
+      border-radius: inherit;
+    }
+
+    .preview-card:hover::after {
+      background: rgba(0,0,0,0.15);
+    }
+
+    .preview-card:hover .preview-zoom-icon {
+      opacity: 1;
+    }
+
+    .preview-zoom-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2rem;
+      height: 2rem;
+      background: rgba(0,0,0,0.5);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.75rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 1;
+      pointer-events: none;
+    }
+
     .animate-fade-in {
       animation: fadeIn 0.5s ease-out forwards;
     }
@@ -186,6 +330,7 @@
       transition: all 0.3s ease;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
     }
 
@@ -1776,7 +1921,8 @@
 
       .modal-body {
         padding: 1rem;
-        max-height: 50vh;
+        max-height: 70vh;
+        overflow-y: auto;
       }
 
       .modal-footer {
@@ -2861,8 +3007,9 @@ function renderDetail(root, id) {
 
       <div class="grid-preview mb-6">
         ${item.preview.map((u, i) => `
-          <div class="card animate-slide-up watermark" style="animation-delay: ${i * 0.1}s">
+          <div class="card animate-slide-up preview-card watermark" style="animation-delay: ${i * 0.1}s" onclick="openLightbox(${i})">
             <img src="${u}" alt="预览图" style="width:100%; aspect-square; object-fit:cover;">
+            <div class="preview-zoom-icon"><i class="fas fa-search-plus"></i></div>
           </div>
         `).join('')}
       </div>
@@ -5412,6 +5559,117 @@ function closeAlipayModal() {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
+}
+
+let lightboxImages = [];
+let lightboxIndex = 0;
+let lightboxTouchStartX = 0;
+let lightboxTouchStartY = 0;
+let lightboxLastTap = 0;
+
+function openLightbox(index) {
+  const item = getDB('albums').find(a => a.id === window.location.hash.split('=')[1]);
+  if (!item || !item.preview || item.preview.length === 0) return;
+  lightboxImages = item.preview;
+  lightboxIndex = index;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  let overlay = document.getElementById('lightboxOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'lightboxOverlay';
+    overlay.className = 'lightbox-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  overlay.innerHTML = `
+    <div class="lightbox-counter">${lightboxIndex + 1} / ${lightboxImages.length}</div>
+    <button class="lightbox-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button>
+    ${lightboxImages.length > 1 ? `
+      <button class="lightbox-nav lightbox-prev" onclick="lightboxPrev(event)"><i class="fas fa-chevron-left"></i></button>
+      <button class="lightbox-nav lightbox-next" onclick="lightboxNext(event)"><i class="fas fa-chevron-right"></i></button>
+    ` : ''}
+    <div class="lightbox-img-wrapper" onclick="lightboxWrapperClick(event)">
+      <img src="${lightboxImages[lightboxIndex]}" alt="预览大图" id="lightboxImg">
+    </div>
+  `;
+
+  overlay.onclick = function(e) {
+    if (e.target === overlay) closeLightbox();
+  };
+
+  requestAnimationFrame(() => overlay.classList.add('active'));
+
+  overlay.ontouchstart = function(e) {
+    lightboxTouchStartX = e.touches[0].clientX;
+    lightboxTouchStartY = e.touches[0].clientY;
+  };
+
+  overlay.ontouchend = function(e) {
+    const dx = e.changedTouches[0].clientX - lightboxTouchStartX;
+    const dy = e.changedTouches[0].clientY - lightboxTouchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx < 0) lightboxNext(e);
+      else lightboxPrev(e);
+    }
+    const now = Date.now();
+    if (now - lightboxLastTap < 300) {
+      closeLightbox();
+    }
+    lightboxLastTap = now;
+  };
+
+  document.onkeydown = function(e) {
+    if (!document.getElementById('lightboxOverlay')?.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') lightboxPrev(e);
+    if (e.key === 'ArrowRight') lightboxNext(e);
+  };
+}
+
+function closeLightbox() {
+  const overlay = document.getElementById('lightboxOverlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    setTimeout(() => overlay.remove(), 300);
+  }
+  document.onkeydown = null;
+}
+
+function lightboxPrev(e) {
+  e && e.stopPropagation();
+  if (lightboxImages.length <= 1) return;
+  lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+  updateLightboxImage();
+}
+
+function lightboxNext(e) {
+  e && e.stopPropagation();
+  if (lightboxImages.length <= 1) return;
+  lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+  updateLightboxImage();
+}
+
+function updateLightboxImage() {
+  const img = document.getElementById('lightboxImg');
+  const counter = document.querySelector('.lightbox-counter');
+  if (img) {
+    img.style.opacity = '0';
+    img.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      img.src = lightboxImages[lightboxIndex];
+      img.style.opacity = '1';
+      img.style.transform = 'scale(1)';
+    }, 150);
+  }
+  if (counter) counter.textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+}
+
+function lightboxWrapperClick(e) {
+  if (e.target.tagName === 'IMG') return;
+  closeLightbox();
 }
 
 // 启动倒计时
