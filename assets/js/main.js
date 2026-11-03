@@ -1,18 +1,69 @@
 /* ============================================
    视觉社 · 核心应用逻辑
-   纯前端 SPA · localStorage 数据持久化
+   数据由后端 API 提供（/api/*），前端内存缓存
    ============================================ */
 
 const App = (() => {
   // ===== 数据层 =====
-  const DB_KEYS = ['articles', 'posts', 'persons', 'works', 'users', 'userPoints', 'pointLogs', 'signRecords', 'unlockRecords', 'categories', 'banner'];
+  const TOKEN_KEY = 'vision_token';
+  const CACHE = {
+    articles: [], posts: [], persons: [], works: [], banner: [],
+    categories: { resourceTypes: [], netdiskTypes: [], personTags: [] },
+    me: null, articleDetail: null, postDetail: null
+  };
 
-  function getDB(k) {
-    try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; }
+  function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+  function setToken(t) { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); }
+
+  async function api(path, options = {}) {
+    const headers = Object.assign({}, options.headers || {});
+    if (options.body !== undefined && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(path, Object.assign({}, options, { headers }));
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) {
+      if (res.status === 401) { setToken(''); CACHE.me = null; }
+      throw new Error((data && data.error) || `请求失败（${res.status}）`);
+    }
+    return data;
   }
-  function setDB(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
 
+  async function loadBootstrap() {
+    const data = await api('/api/bootstrap');
+    CACHE.articles = data.articles || [];
+    CACHE.posts = data.posts || [];
+    CACHE.persons = data.persons || [];
+    CACHE.works = data.works || [];
+    CACHE.banner = data.banner || [];
+    CACHE.categories = data.categories || CACHE.categories;
+    CACHE.me = data.me || null;
+  }
+
+  async function loadMe() {
+    if (!getToken()) { CACHE.me = null; return; }
+    try {
+      const data = await api('/api/auth/me');
+      CACHE.me = {
+        user: data.user,
+        points: data.points,
+        signedToday: !!data.signedToday,
+        myUnlocked: data.myUnlocked || [],
+        myPosts: data.myPosts || [],
+        logs: data.logs || [],
+        signRecords: data.signRecords || []
+      };
+    } catch { CACHE.me = null; }
+  }
+
+  async function refresh() { await loadBootstrap(); await loadMe(); }
+
+  // 仅保留读取接口，所有写入统一走后端 API
+  function getDB(k) { return CACHE[k] || []; }
+  function setDB() {}
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
 
   // ===== 初始化种子数据 =====
   function initSeedData() {
@@ -95,86 +146,36 @@ const App = (() => {
   }
 
   // ===== 用户系统 =====
-  function getCurrentUser() {
-    const u = localStorage.getItem('currentUser');
-    return u ? JSON.parse(u) : null;
-  }
-
-  function setCurrentUser(user) {
-    if (user) {
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      ensureUserPoints(user.id);
-    } else {
-      localStorage.removeItem('currentUser');
-    }
-  }
+  function getCurrentUser() { return CACHE.me ? CACHE.me.user : null; }
 
   function isAdmin() {
-    return localStorage.getItem('admin') === 'ok';
+    const u = getCurrentUser();
+    return !!u && u.role === 'admin';
   }
 
-  function ensureUserPoints(userId) {
-    let points = getDB('userPoints');
-    if (!points.find(p => p.userId === userId)) {
-      points.push({ userId, available: 500, frozen: 0, totalGain: 500 });
-      setDB('userPoints', points);
-      addPointLog(userId, 500, 'register', '新用户注册赠送');
-    }
+  function getUserPoints() {
+    return CACHE.me ? CACHE.me.points : { available: 0, frozen: 0, totalGain: 0 };
   }
 
-  function getUserPoints(userId) {
-    const points = getDB('userPoints');
-    return points.find(p => p.userId === userId) || { available: 0, frozen: 0, totalGain: 0 };
-  }
-
-  function updateUserPoints(userId, availableDelta, frozenDelta = 0, remark = '') {
-    const points = getDB('userPoints');
-    let u = points.find(p => p.userId === userId);
-    if (!u) {
-      u = { userId, available: 500, frozen: 0, totalGain: 500 };
-      points.push(u);
-    }
-    u.available = Math.max(0, u.available + availableDelta);
-    u.frozen = Math.max(0, u.frozen + frozenDelta);
-    if (availableDelta > 0) u.totalGain += availableDelta;
-    setDB('userPoints', points);
-  }
-
-  function addPointLog(userId, point, type, remark = '', relateId = '') {
-    const logs = getDB('pointLogs');
-    logs.unshift({ id: uid(), userId, point, type, remark, relateId, createdAt: Date.now() });
-    setDB('pointLogs', logs.slice(0, 500)); // 保留最近500条
-  }
 
   // ===== 签到系统 =====
-  function doSignin() {
+  async function doSignin() {
     const user = getCurrentUser();
     if (!user) { showLoginModal(); return; }
+    if (hasSignedToday()) { toast('今日已签到，明天再来吧', 'warning'); return; }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const records = getDB('signRecords');
-    if (records.find(r => r.userId === user.id && r.date === today)) {
-      toast('今日已签到，明天再来吧', 'warning');
-      return;
+    try {
+      const r = await api('/api/auth/signin', { method: 'POST', body: '{}' });
+      await loadMe();
+      showSigninResult(r.reward);
+      renderNav();
+      render();
+    } catch (e) {
+      toast(e.message, 'error');
     }
-
-    const reward = 100 + Math.floor(Math.random() * 101); // 100-200
-    records.push({ id: uid(), userId: user.id, date: today, point: reward, createdAt: Date.now() });
-    setDB('signRecords', records);
-
-    updateUserPoints(user.id, reward);
-    addPointLog(user.id, reward, 'sign', '每日签到');
-
-    showSigninResult(reward);
-    renderNav();
   }
 
-  function hasSignedToday() {
-    const user = getCurrentUser();
-    if (!user) return false;
-    const today = new Date().toISOString().slice(0, 10);
-    return getDB('signRecords').some(r => r.userId === user.id && r.date === today);
-  }
+  function hasSignedToday() { return !!(CACHE.me && CACHE.me.signedToday); }
 
   function showSigninResult(point) {
     const modal = openModal(`
@@ -203,6 +204,9 @@ const App = (() => {
     root.classList.add('fade-in');
 
     render();
+    if (route === 'profile' && getToken()) {
+      loadMe().then(() => { if (currentRoute === 'profile') { renderNav(); render(); } }).catch(() => {});
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -322,7 +326,7 @@ const App = (() => {
       <div class="page-layout">
         <div class="main-content">
           <div class="section-header">
-            <h2 class="section-title">站长推荐</h2>
+            <h2 class="section-title">站长推荐<span class="section-count">${articles.length} 篇</span></h2>
           </div>
           <div class="article-grid">
             ${articles.length > 0 ? articles.map(renderArticleCard).join('') : `
@@ -330,9 +334,9 @@ const App = (() => {
             `}
           </div>
 
-          <div style="margin-top:2rem;" class="section-header">
+          <div style="margin-top:2.5rem;" class="section-header">
             <h2 class="section-title">最新社区分享</h2>
-            <a onclick="App.navigate('forum')" style="font-size:0.75rem;color:var(--color-text-muted);cursor:pointer;">查看全部 →</a>
+            <a class="section-more" onclick="App.navigate('forum')">查看全部 →</a>
           </div>
           <div class="post-list">
             ${latestShares.length > 0 ? latestShares.map(renderSharePostCard).join('') : ''}
@@ -347,8 +351,11 @@ const App = (() => {
             </div>
             <div class="sidebar-body">
               ${latestShares.length > 0 ? latestShares.slice(0, 4).map(p => `
-                <div onclick="App.openPost('${p.id}')" style="padding:0.5rem 0;border-bottom:1px solid var(--color-border);cursor:pointer;font-size:0.8125rem;color:var(--color-text-secondary);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;">${p.title}</div>
-              `).join('') : '<div style="font-size:0.75rem;color:var(--color-text-muted);">暂无</div>'}
+                <div class="side-item" onclick="App.openPost('${p.id}')">
+                  <span class="side-item-title">${p.title}</span>
+                  <span class="side-item-extra">${timeAgo(p.createdAt)}</span>
+                </div>
+              `).join('') : '<div class="side-empty">暂无内容</div>'}
             </div>
           </div>
 
@@ -358,11 +365,11 @@ const App = (() => {
             </div>
             <div class="sidebar-body">
               ${latestDemands.length > 0 ? latestDemands.slice(0, 4).map(p => `
-                <div onclick="App.openPost('${p.id}')" style="padding:0.5rem 0;border-bottom:1px solid var(--color-border);cursor:pointer;font-size:0.8125rem;color:var(--color-text-secondary);display:flex;justify-content:space-between;gap:0.5rem;">
-                  <span style="display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;">${p.title}</span>
-                  <span class="reward-tag" style="font-size:0.6875rem;flex-shrink:0;">🏆${p.rewardPoint}</span>
+                <div class="side-item" onclick="App.openPost('${p.id}')">
+                  <span class="side-item-title">${p.title}</span>
+                  <span class="side-item-extra reward">🏆 ${p.rewardPoint}</span>
                 </div>
-              `).join('') : '<div style="font-size:0.75rem;color:var(--color-text-muted);">暂无</div>'}
+              `).join('') : '<div class="side-empty">暂无内容</div>'}
             </div>
           </div>
 
@@ -370,12 +377,10 @@ const App = (() => {
             <div class="sidebar-header">
               <div class="sidebar-title"><i class="fas fa-bullhorn"></i> 公告栏</div>
             </div>
-            <div class="sidebar-body">
-              <div style="font-size:0.8125rem;color:var(--color-text-secondary);line-height:1.6;">
-                欢迎来到视觉社！本站为用户投稿、网盘外链信息交流站点。<br><br>
-                ⚠️ 本站不存储任何资源文件，所有资源由网友自行投稿，请注意甄别资源有效性。<br><br>
-                🎯 每日签到100-200积分，积分解锁优质分享帖。
-              </div>
+            <div class="side-notice">
+              欢迎来到视觉社！本站为用户投稿、网盘外链信息交流站点。<br><br>
+              ⚠️ 本站不存储任何资源文件，所有资源由网友自行投稿，请注意甄别资源有效性。<br><br>
+              🎯 每日签到100-200积分，积分解锁优质分享帖。
             </div>
           </div>
         </aside>
@@ -429,15 +434,16 @@ const App = (() => {
     return `
       <article class="article-card" onclick="App.openArticle('${a.id}')">
         <div class="article-card-cover">
+          ${a.pinned ? '<span class="article-card-badge"><i class="fas fa-thumbtack"></i> 置顶</span>' : ''}
           <img src="${a.cover}" alt="${a.title}" loading="lazy">
         </div>
         <div class="article-card-body">
-          <div class="article-card-title">${a.pinned ? '📌 ' : ''}${a.title}</div>
+          <div class="article-card-title">${a.title}</div>
           <div class="article-card-excerpt">${a.excerpt || ''}</div>
           <div class="article-card-footer">
-            <span>👤 ${a.author}</span>
-            <span>👁 ${a.views || 0}</span>
-            <span>${timeAgo(a.createdAt)}</span>
+            <span class="footer-main"><i class="fas fa-user"></i> ${a.author}</span>
+            <span class="footer-main"><i class="fas fa-eye"></i> ${a.views || 0}</span>
+            <span class="footer-time">${timeAgo(a.createdAt)}</span>
           </div>
         </div>
       </article>
@@ -491,23 +497,25 @@ const App = (() => {
   function openArticle(id) {
     currentRoute = 'article';
     sessionStorage.setItem('currentId', id);
-    const articles = getDB('articles');
-    const a = articles.find(x => x.id === id);
-    if (a) {
-      a.views = (a.views || 0) + 1;
-      setDB('articles', articles);
-    }
+    CACHE.articleDetail = null;
     render();
+    api(`/api/articles/${encodeURIComponent(id)}`).then(a => {
+      CACHE.articleDetail = a;
+      if (currentRoute === 'article' && sessionStorage.getItem('currentId') === id) render();
+    }).catch(() => {});
   }
 
   function renderArticle() {
     const id = sessionStorage.getItem('currentId');
-    const a = getDB('articles').find(x => x.id === id);
+    const a = (CACHE.articleDetail && CACHE.articleDetail.id === id)
+      ? CACHE.articleDetail
+      : getDB('articles').find(x => x.id === id);
     if (!a) return '<div class="empty-state"><div class="empty-state-text">文章不存在</div></div>';
 
     const relatedPosts = getDB('posts').filter(p => p.status === 'approved' && p.type === 'share').slice(0, 4);
 
     return `
+      <div class="detail-page">
       <button onclick="App.navigate('home')" style="display:inline-flex;align-items:center;gap:0.5rem;background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:0.875rem;margin-bottom:1rem;">
         <i class="fas fa-arrow-left"></i> 返回首页
       </button>
@@ -535,6 +543,7 @@ const App = (() => {
           </div>
         </div>
       ` : ''}
+      </div>
     `;
   }
 
@@ -639,6 +648,7 @@ const App = (() => {
     if (!person) return '<div class="empty-state"><div class="empty-state-text">人物不存在</div></div>';
 
     return `
+      <div class="detail-page">
       <button onclick="App.navigate('jicha')" style="display:inline-flex;align-items:center;gap:0.5rem;background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:0.875rem;margin-bottom:1rem;">
         <i class="fas fa-arrow-left"></i> 返回名录
       </button>
@@ -681,6 +691,7 @@ const App = (() => {
       ` : `
         <div class="empty-state"><div class="empty-state-icon">🎨</div><div class="empty-state-text">还没有作品投稿</div></div>
       `}
+      </div>
     `;
   }
 
@@ -688,22 +699,28 @@ const App = (() => {
   function openPost(id) {
     sessionStorage.setItem('currentPostId', id);
     currentRoute = 'postDetail';
+    CACHE.postDetail = null;
     render();
+    api(`/api/posts/${encodeURIComponent(id)}`).then(p => {
+      CACHE.postDetail = p;
+      if (currentRoute === 'postDetail' && sessionStorage.getItem('currentPostId') === id) render();
+    }).catch(() => {});
   }
 
   function renderPostDetail() {
     const id = sessionStorage.getItem('currentPostId');
-    const posts = getDB('posts');
-    const p = posts.find(x => x.id === id);
+    const p = (CACHE.postDetail && CACHE.postDetail.id === id)
+      ? CACHE.postDetail
+      : getDB('posts').find(x => x.id === id);
     if (!p) return '<div class="empty-state"><div class="empty-state-text">帖子不存在</div></div>';
 
     const user = getCurrentUser();
-    const records = getDB('unlockRecords');
-    const isUnlocked = user && records.some(r => r.userId === user.id && r.postId === id);
+    const isUnlocked = user && (CACHE.me.myUnlocked || []).includes(id);
     const canUnlock = user && !isUnlocked && p.unlockPoint > 0;
-    const points = user ? getUserPoints(user.id) : { available: 0 };
+    const points = getUserPoints();
 
     return `
+      <div class="detail-page">
       <button onclick="App.navigate('forum')" style="display:inline-flex;align-items:center;gap:0.5rem;background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:0.875rem;margin-bottom:1rem;">
         <i class="fas fa-arrow-left"></i> 返回论坛
       </button>
@@ -786,33 +803,28 @@ const App = (() => {
           </div>
         </div>
       ` : ''}
+      </div>
     `;
   }
 
-  function unlockPost(postId, cost) {
+  async function unlockPost(postId, cost) {
     const user = getCurrentUser();
     if (!user) { showLoginModal(); return; }
-    const points = getUserPoints(user.id);
-    if (points.available < cost) {
+    if (getUserPoints().available < cost) {
       toast('积分不足，先去签到吧！', 'warning');
       return;
     }
 
-    const records = getDB('unlockRecords');
-    if (records.some(r => r.userId === user.id && r.postId === postId)) {
-      toast('已解锁过', 'warning');
-      return;
+    try {
+      await api(`/api/posts/${encodeURIComponent(postId)}/unlock`, { method: 'POST', body: '{}' });
+      await loadMe();
+      CACHE.postDetail = await api(`/api/posts/${encodeURIComponent(postId)}`).catch(() => CACHE.postDetail);
+      toast(`解锁成功！消耗 ${cost} 积分`, 'success');
+      renderNav();
+      render();
+    } catch (e) {
+      toast(e.message, 'error');
     }
-
-    records.push({ id: uid(), userId: user.id, postId, cost, unlockedAt: Date.now() });
-    setDB('unlockRecords', records);
-
-    updateUserPoints(user.id, -cost);
-    addPointLog(user.id, -cost, 'unlock_post', `解锁帖子`, postId);
-
-    toast(`解锁成功！消耗 ${cost} 积分`, 'success');
-    renderNav();
-    render();
   }
 
   // ===== 用户中心 =====
@@ -826,10 +838,11 @@ const App = (() => {
       </div>
     `;
 
-    const points = getUserPoints(user.id);
-    const allPosts = getDB('posts').filter(p => p.userId === user.id);
-    const logs = getDB('pointLogs').filter(l => l.userId === user.id);
-    const records = getDB('signRecords').filter(r => r.userId === user.id);
+    const me = CACHE.me || {};
+    const points = me.points || { available: 0, frozen: 0, totalGain: 0 };
+    const allPosts = me.myPosts || [];
+    const logs = me.logs || [];
+    const records = me.signRecords || [];
     const today = new Date();
     const calendar = renderSigninCalendar(records, today);
 
@@ -971,46 +984,45 @@ const App = (() => {
     }, 50);
   }
 
-  function doLogin() {
-    const user = document.getElementById('loginUser').value.trim();
+  async function doLogin() {
+    const username = document.getElementById('loginUser').value.trim();
     const pwd = document.getElementById('loginPwd').value;
-    if (!user || !pwd) { toast('请输入账号和密码', 'warning'); return; }
-    const users = getDB('users');
-    const u = users.find(x => x.username === user && x.password === pwd);
-    if (u) {
-      setCurrentUser({ id: u.id, username: u.username, nickname: u.nickname });
-      toast(`欢迎回来，${u.nickname}！`, 'success');
+    if (!username || !pwd) { toast('请输入账号和密码', 'warning'); return; }
+    try {
+      const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password: pwd }) });
+      setToken(r.token);
+      await refresh();
       closeModal();
-      renderNav();
+      toast(`欢迎回来，${r.user.nickname}！`, 'success');
       render();
-    } else {
-      toast('账号或密码错误', 'error');
+    } catch (e) {
+      toast(e.message, 'error');
     }
   }
 
-  function doRegister() {
+  async function doRegister() {
     const nickname = document.getElementById('regNickname').value.trim();
-    const user = document.getElementById('regUser').value.trim();
+    const username = document.getElementById('regUser').value.trim();
     const pwd = document.getElementById('regPwd').value;
-    if (!nickname || !user || !pwd) { toast('请填写完整', 'warning'); return; }
+    if (!nickname || !username || !pwd) { toast('请填写完整', 'warning'); return; }
     if (pwd.length < 6) { toast('密码至少6位', 'warning'); return; }
-    const users = getDB('users');
-    if (users.find(u => u.username === user)) { toast('账号已存在', 'error'); return; }
-
-    const newUser = { id: uid(), username: user, nickname, password: pwd, createdAt: Date.now() };
-    users.push(newUser);
-    setDB('users', users);
-    setCurrentUser({ id: newUser.id, username: newUser.username, nickname });
-    closeModal();
-    toast('注册成功！赠送500初始积分', 'success');
-    renderNav();
-    render();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) { toast('账号需为3-20位字母、数字或下划线', 'warning'); return; }
+    try {
+      const r = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, password: pwd, nickname }) });
+      setToken(r.token);
+      await refresh();
+      closeModal();
+      toast('注册成功！赠送500初始积分', 'success');
+      render();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
   }
 
-  function logout() {
-    setCurrentUser(null);
-    localStorage.removeItem('admin');
-    renderNav();
+  async function logout() {
+    setToken('');
+    CACHE.me = null;
+    try { await loadBootstrap(); } catch {}
     render();
     toast('已退出登录', 'success');
   }
@@ -1018,24 +1030,24 @@ const App = (() => {
   function showEditProfile() {
     const user = getCurrentUser();
     if (!user) return;
-    const modal = openModal(`
+    openModal(`
       <div class="form-group">
         <label class="form-label">昵称</label>
         <input class="form-input" id="editNickname" value="${user.nickname || ''}">
       </div>
-    `, { title: '编辑资料', onConfirm: () => {
+    `, { title: '编辑资料', onConfirm: async () => {
       const nickname = document.getElementById('editNickname').value.trim();
       if (!nickname) { toast('昵称不能为空', 'warning'); return false; }
-      const users = getDB('users');
-      const u = users.find(x => x.id === user.id);
-      if (u) { u.nickname = nickname; setDB('users', users); }
-      const cu = getCurrentUser();
-      cu.nickname = nickname;
-      setCurrentUser(cu);
-      toast('资料已更新', 'success');
-      renderNav();
-      render();
-      return true;
+      try {
+        await api('/api/auth/profile', { method: 'PATCH', body: JSON.stringify({ nickname }) });
+        await refresh();
+        toast('资料已更新', 'success');
+        render();
+        return true;
+      } catch (e) {
+        toast(e.message, 'error');
+        return false;
+      }
     }});
   }
 
@@ -1126,10 +1138,10 @@ const App = (() => {
     document.getElementById('tabShare').classList.toggle('active', type === 'share');
   }
 
-  function submitPost(type) {
+  async function submitPost(type) {
     const user = getCurrentUser();
     if (!user) { showLoginModal(); return false; }
-    const points = getUserPoints(user.id);
+    const points = getUserPoints();
 
     if (type === 'demand') {
       const title = document.getElementById('demandTitle').value.trim();
@@ -1143,20 +1155,16 @@ const App = (() => {
       if (rewardPoint > 5000) { toast('悬赏上限5000', 'warning'); return false; }
       if (rewardPoint > points.available) { toast(`可用积分不足（当前${points.available}）`, 'error'); return false; }
 
-      if (rewardPoint > 0) {
-        updateUserPoints(user.id, -rewardPoint, rewardPoint);
-        addPointLog(user.id, -rewardPoint, 'demand_freeze', `悬赏冻结 - ${title.slice(0, 20)}`);
+      try {
+        await api('/api/posts', { method: 'POST', body: JSON.stringify({
+          type: 'demand', title, content, resourceType, netdiskPref, rewardPoint
+        }) });
+      } catch (e) {
+        toast(e.message, 'error');
+        return false;
       }
-
-      const posts = getDB('posts');
-      posts.unshift({
-        id: uid(), type: 'demand', title, content, resourceType, netdiskPref,
-        rewardPoint, userId: user.id, userName: user.nickname,
-        status: 'approved', isFinish: false, createdAt: Date.now()
-      });
-      setDB('posts', posts);
-
-      toast(+rewardPoint > 0 ? `已发布求资源，冻结 ${rewardPoint} 积分，待通过审核后展示` : '已发布求资源，待通过审核后展示', 'success');
+      await refresh();
+      toast(rewardPoint > 0 ? `已发布求资源，冻结 ${rewardPoint} 积分，待通过审核后展示` : '已发布求资源，待通过审核后展示', 'success');
     } else {
       const title = document.getElementById('shareTitle').value.trim();
       const netdiskType = document.getElementById('shareNetdisk').value;
@@ -1170,19 +1178,20 @@ const App = (() => {
       if (!/^https?:\/\//.test(link)) { toast('请输入有效链接', 'warning'); return false; }
       if (unlockPoint > 5000) { toast('解锁积分上限5000', 'warning'); return false; }
 
-      const posts = getDB('posts');
-      posts.unshift({
-        id: uid(), type: 'share', title, content, resourceType, netdiskType, link, extractCode,
-        unlockPoint, userId: user.id, userName: user.nickname,
-        status: 'approved', createdAt: Date.now()
-      });
-      setDB('posts', posts);
+      try {
+        await api('/api/posts', { method: 'POST', body: JSON.stringify({
+          type: 'share', title, content, resourceType, netdiskType, link, extractCode, unlockPoint
+        }) });
+      } catch (e) {
+        toast(e.message, 'error');
+        return false;
+      }
+      await refresh();
       toast('分享发布成功！待通过审核后展示', 'success');
     }
 
-    closeModal();
-    currentSubmitType = 'demand';
-    return false; // 阻止默认关闭
+    render();
+    return true;
   }
 
   function showWorkSubmitModal(personId) {
@@ -1213,7 +1222,7 @@ const App = (() => {
         <label class="form-label">作品简介</label>
         <textarea class="form-textarea" id="workContent" placeholder="作品简介、版本、画质等"></textarea>
       </div>
-    `, { title: '投稿该人物作品', onConfirm: () => {
+    `, { title: '投稿该人物作品', onConfirm: async () => {
       const title = document.getElementById('workTitle').value.trim();
       const netdiskType = document.getElementById('workNetdisk').value;
       const link = document.getElementById('workLink').value.trim();
@@ -1222,24 +1231,17 @@ const App = (() => {
 
       if (!title || !link) { toast('请填写完整', 'warning'); return false; }
 
-      const works = getDB('works');
-      works.unshift({
-        id: uid(), personId, title, netdiskType, link, extractCode, content,
-        userId: user.id, userName: user.nickname, cover: '',
-        status: 'approved', createdAt: Date.now()
-      });
-      setDB('works', works);
+      try {
+        await api('/api/works', { method: 'POST', body: JSON.stringify({
+          personId, title, netdiskType, link, extractCode, content
+        }) });
+      } catch (e) {
+        toast(e.message, 'error');
+        return false;
+      }
 
-      // 也加入 posts 表以便统一展示
-      const posts = getDB('posts');
-      posts.unshift({
-        id: uid(), type: 'share', personId, title, resourceType: '素材',
-        netdiskType, link, extractCode, content, unlockPoint: 0,
-        userId: user.id, userName: user.nickname, status: 'approved', createdAt: Date.now()
-      });
-      setDB('posts', posts);
-
-      toast('投稿成功！', 'success');
+      toast('投稿成功！待审核通过后展示', 'success');
+      render();
       return true;
     }});
   }
@@ -1309,7 +1311,7 @@ const App = (() => {
   function showPrivacy() { openModal(`<div style="max-height:60vh;overflow-y:auto;font-size:0.8125rem;line-height:1.8;color:var(--color-text-secondary);">
     <h3 style="color:var(--color-text);margin-bottom:0.5rem;">隐私政策</h3>
     <p>本站仅存储用户注册信息（账号、昵称）、积分流水和投稿记录，不收集无关个人信息。</p>
-    <p>用户数据保存在本地浏览器中，不上传到任何外部服务器（纯前端版本）。</p>
+    <p>用户账号、积分与投稿数据保存在本站服务器数据库中，用于多端同步；不会向第三方出售或共享。</p>
     <p>积分属于站内虚拟数值，无任何现金价值，不可提现、转账、买卖。</p>
   </div>`, { title: '隐私政策', hideFooter: true }); }
 
@@ -1410,9 +1412,13 @@ const App = (() => {
 
     if (options.onConfirm) {
       setTimeout(() => {
-        overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', () => {
+        overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', async () => {
           const result = options.onConfirm();
-          if (result) closeModal();
+          if (result && typeof result.then === 'function') {
+            if (await result) closeModal();
+          } else if (result) {
+            closeModal();
+          }
         });
       }, 10);
     }
@@ -1430,15 +1436,21 @@ const App = (() => {
   }
 
   // ===== 启动 =====
-  function init() {
-    initSeedData();
+  async function init() {
     // 初始导航高亮
     const links = document.querySelectorAll('.nav-link');
     links.forEach(l => l.classList.toggle('active', l.dataset.route === 'home'));
+    try {
+      await loadBootstrap();
+      if (getToken()) await loadMe();
+    } catch (e) {
+      console.error(e);
+      toast('数据加载失败，请稍后刷新页面', 'error');
+    }
     render();
-    // 后台在另一个标签页修改数据后，前台自动刷新
-    window.addEventListener('storage', e => {
-      if (e.key && DB_KEYS.includes(e.key)) render();
+    // 切回页面 / 多端切换时自动同步
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refresh().then(() => render()).catch(() => {});
     });
     document.getElementById('loadingOverlay').style.opacity = '0';
     setTimeout(() => document.getElementById('loadingOverlay').style.display = 'none', 300);
