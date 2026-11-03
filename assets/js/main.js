@@ -285,7 +285,7 @@ const App = (() => {
         <i class="fas fa-calendar-check" style="color:var(--color-primary);width:16px;"></i>每日签到
       </button>
       <div style="height:1px;background:var(--color-border);margin:0.25rem 0;"></div>
-      ${isAdmin() ? `<button class="dropdown-item" onclick="location.href='admin-v2.html'" style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.625rem 1rem;background:none;border:none;color:var(--color-text);font-size:0.875rem;cursor:pointer;text-align:left;"><i class="fas fa-cog" style="color:var(--color-warning);width:16px;"></i>后台管理</button>` : ''}
+      ${isAdmin() ? `<button class="dropdown-item" onclick="location.href='admin/'" style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.625rem 1rem;background:none;border:none;color:var(--color-text);font-size:0.875rem;cursor:pointer;text-align:left;"><i class="fas fa-cog" style="color:var(--color-warning);width:16px;"></i>后台管理</button>` : ''}
       <button class="dropdown-item" onclick="App.logout()" style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.625rem 1rem;background:none;border:none;color:var(--color-danger);font-size:0.875rem;cursor:pointer;text-align:left;">
         <i class="fas fa-sign-out-alt" style="width:16px;"></i>退出登录
       </button>
