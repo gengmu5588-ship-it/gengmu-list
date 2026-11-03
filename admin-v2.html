@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>视觉社 · 管理后台</title>
+<style>
+  :root{
+    --bg:#0b0a12; --panel:#14111f; --panel-2:#1a1626; --line:rgba(139,92,246,.18);
+    --primary:#8b5cf6; --primary-2:#a78bfa; --text:#ece9f7; --muted:#9b95b3;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    font-size:14px; line-height:1.6; min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  button,input,select,textarea{font-family:inherit;font-size:14px}
+  /* 登录 */
+  .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;
+    background:radial-gradient(1200px 600px at 20% 0%,rgba(139,92,246,.18),transparent 60%),var(--bg)}
+  .login-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .login-card .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .logo-mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#8b5cf6,#ec4899);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
+  .login-card h1{font-size:20px;font-weight:700;letter-spacing:.5px}
+  .login-card p{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .input,select,textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;color:var(--text);outline:none;transition:.2s}
+  .input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:10px;
+    padding:9px 16px;cursor:pointer;font-weight:600;transition:.18s;background:var(--panel-2);color:var(--text)}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);border-color:rgba(255,255,255,.12)}
+  .btn-primary:hover{box-shadow:0 8px 24px rgba(139,92,246,.35)}
+  .btn-ghost{border-color:var(--line);background:transparent}
+  .btn-danger{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.35);color:#fca5a5}
+  .btn-ok{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.35);color:#6ee7b7}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:8px}
+  /* 布局 */
+  .layout{display:flex;min-height:100vh}
+  .side{width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .brand{padding:22px 20px 16px;border-bottom:1px solid var(--line)}
+  .brand b{display:block;font-size:16px;letter-spacing:1px}
+  .brand em{font-style:normal;font-size:11px;color:var(--muted);letter-spacing:2px}
+  .side nav{flex:1;padding:12px 10px;overflow:auto}
+  .side nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+    color:var(--muted);font-size:13px;margin-bottom:2px;transition:.18s}
+  .side nav a:hover{background:var(--panel-2);color:var(--text)}
+  .side nav a.on{background:linear-gradient(135deg,rgba(139,92,246,.22),rgba(236,72,153,.10));
+    color:#fff;border:1px solid var(--line)}
+  .side-foot{padding:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;font-size:12px}
+  .side-foot a{color:var(--muted)}
+  .side-foot a:hover{color:var(--primary-2)}
+  .main{flex:1;min-width:0;padding:24px 28px 60px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .topbar h1{font-size:20px;font-weight:700}
+  .topbar .who{font-size:12px;color:var(--muted)}
+  /* 卡片与表格 */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .stat .k{font-size:12px;color:var(--muted);margin-bottom:4px}
+  .stat .v{font-size:24px;font-weight:700;letter-spacing:.5px}
+  .stat .v small{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .panel-head h2{font-size:15px}
+  .panel-head .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .table{width:100%;border-collapse:collapse}
+  .table th{font-size:12px;color:var(--muted);font-weight:500;text-align:left;padding:10px 14px;
+    border-bottom:1px solid var(--line);white-space:nowrap;background:rgba(255,255,255,.02)}
+  .table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+  .table tr:last-child td{border-bottom:none}
+  .table td .t{display:block;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .table td .sub{font-size:11px;color:var(--muted)}
+  .cell-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;line-height:1.8;white-space:nowrap}
+  .tag-green{background:rgba(52,211,153,.12);color:#6ee7b7;border:1px solid rgba(52,211,153,.3)}
+  .tag-amber{background:rgba(251,191,36,.12);color:#fcd34d;border:1px solid rgba(251,191,36,.3)}
+  .tag-red{background:rgba(248,113,113,.12);color:#fca5a5;border:1px solid rgba(248,113,113,.3)}
+  .tag-gray{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.1)}
+  .tag-violet{background:rgba(139,92,246,.15);color:#c4b5fd;border:1px solid rgba(139,92,246,.35)}
+  .empty{padding:48px 20px;text-align:center;color:var(--muted);font-size:13px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tabs button{padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--muted);font-size:12px;cursor:pointer}
+  .tabs button.on{background:rgba(139,92,246,.18);color:#fff;border-color:rgba(139,92,246,.45)}
+  .notice{padding:12px 16px;border-radius:12px;background:rgba(251,191,36,.08);
+    border:1px solid rgba(251,191,36,.25);color:#fcd34d;font-size:12.5px;margin-bottom:18px}
+  .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  /* 弹窗 */
+  .mask{position:fixed;inset:0;background:rgba(4,3,10,.72);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;padding:20px;z-index:100}
+  .modal{width:100%;max-width:560px;max-height:88vh;overflow:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .modal h3{padding:16px 20px;border-bottom:1px solid var(--line);font-size:15px}
+  .modal-body{padding:18px 20px}
+  .modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(10px);
+    background:#241f35;border:1px solid var(--line);color:#fff;padding:10px 18px;border-radius:10px;
+    font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:200}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(max-width:820px){
+    .layout{flex-direction:column}
+    .side{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center}
+    .brand{padding:14px 16px;border-bottom:none}
+    .side nav{display:flex;flex-wrap:wrap;gap:4px;padding:8px}
+    .side nav a{margin:0}
+    .side-foot{flex-direction:row;border-top:none}
+    .main{padding:18px 16px 48px}
+    .table{display:block;overflow-x:auto;white-space:nowrap}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+const Admin = (() => {
+  const KEYS = ['articles','posts','persons','works','users','userPoints','pointLogs','signRecords','unlockRecords','categories','banner'];
+  const get = k => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } };
+  const set = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt = t => t ? new Date(t).toLocaleString('zh-CN', { hour12: false }) : '-';
+
+  let state = { nav: 'overview', postTab: 'all' };
+  let lastQuery = '';
+
+  /* ===== 基础 ===== */
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+  function pointsOf(id) {
+    const arr = get('userPoints');
+    return arr.find(p => p.userId === id) || { userId: id, available: 0, frozen: 0, totalGain: 0 };
+  }
+  function addLog(userId, point, type, remark) {
+    const logs = get('pointLogs');
+    logs.unshift({ id: uid(), userId, point, type, remark, relateId: '', createdAt: Date.now() });
+    set('pointLogs', logs.slice(0, 500));
+  }
+  function changePoints(userId, delta, remark, type) {
+    const arr = get('userPoints');
+    let u = arr.find(p => p.userId === userId);
+    if (!u) { u = { userId, available: 0, frozen: 0, totalGain: 0 }; arr.push(u); }
+    u.available = Math.max(0, u.available + delta);
+    if (delta > 0) u.totalGain += delta;
+    set('userPoints', arr);
+    addLog(userId, delta, type || (delta > 0 ? 'admin_give' : 'admin_deduct'), remark);
+  }
+  function setFrozen(userId, delta) {
+    const arr = get('userPoints');
+    let u = arr.find(p => p.userId === userId);
+    if (!u) { u = { userId, available: 0, frozen: 0, totalGain: 0 }; arr.push(u); }
+    u.frozen = Math.max(0, u.frozen + delta);
+    set('userPoints', arr);
+  }
+  function personName(id) {
+    const p = get('persons').find(x => x.id === id);
+    return p ? p.name : '（人物已删除）';
+  }
+
+  /* ===== 登录 ===== */
+  function isAdmin() { return localStorage.getItem('admin') === 'ok'; }
+  function renderLogin(msg) {
+    document.getElementById('app').innerHTML = `
+      <div class="login-wrap">
+        <div class="login-card">
+          <div class="logo-row"><span class="logo-mark">视</span><div><h1>视觉社 · 管理后台</h1></div></div>
+          <p>请输入管理员账号密码（默认 admin / 123456）</p>
+          <div class="field"><label>账号</label><input class="input" id="lg-user" placeholder="账号" value="admin"></div>
+          <div class="field"><label>密码</label><input class="input" id="lg-pwd" type="password" placeholder="密码"></div>
+          <div class="field" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="lg-remember" style="width:auto">
+            <label for="lg-remember" style="margin:0;color:var(--muted);font-size:12px">下次自动登录</label>
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px" id="lg-btn">登 录</button>
+          <p style="margin:16px 0 0;text-align:center"><a href="index.html" style="color:var(--muted)">← 返回前台</a></p>
+        </div>
+      </div>`;
+    const doLogin = () => {
+      const u = document.getElementById('lg-user').value.trim();
+      const p = document.getElementById('lg-pwd').value;
+      const cfg = get('adminConfig');
+      const conf = Array.isArray(cfg) ? (cfg[0] || null) : (cfg && typeof cfg === 'object' ? cfg : null);
+      const admins = (conf && Array.isArray(conf.admins) && conf.admins.length)
+        ? conf.admins
+        : [{ username: conf?.username || 'admin', password: conf?.password || '123456' }];
+      if (!admins.some(a => a.username === u && a.password === p)) { toast('账号或密码错误'); return; }
+      localStorage.setItem('admin', 'ok');
+      localStorage.setItem('adminRemember', document.getElementById('lg-remember').checked ? 'true' : 'false');
+      go(state.nav);
+      toast('登录成功');
+    };
+    document.getElementById('lg-btn').onclick = doLogin;
+    document.getElementById('lg-pwd').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+  }
+  function logout() {
+    localStorage.removeItem('admin');
+    renderLogin();
+  }
+
+  /* ===== 框架 ===== */
+  const NAV = [
+    ['overview', '📊', '数据概览'],
+    ['posts', '📝', '帖子审核'],
+    ['persons', '👤', '姬查查人物'],
+    ['works', '🎬', '作品管理'],
+    ['points', '💰', '积分管理'],
+    ['articles', '📌', '站长推荐'],
+    ['banner', '🖼️', 'Banner'],
+    ['categories', '🏷️', '分类配置'],
+    ['backup', '💾', '数据备份'],
+  ];
+  const TITLES = Object.fromEntries(NAV.map(n => [n[0], n[2]]));
+
+  function shell(active, content) {
+    const nav = NAV.map(([k, ic, label]) =>
+      `<a class="${active === k ? 'on' : ''}" onclick="Admin.go('${k}')">${ic}<span>${label}</span></a>`).join('');
+    document.getElementById('app').innerHTML = `
+      <div class="layout">
+        <aside class="side">
+          <div class="brand"><b>视觉社</b><em>ADMIN CONSOLE</em></div>
+          <nav>${nav}</nav>
+          <div class="side-foot">
+            <a href="index.html">← 返回前台</a>
+            <a onclick="Admin.logout()">退出登录</a>
+          </div>
+        </aside>
+        <main class="main">
+          <header class="topbar">
+            <h1>${TITLES[active] || ''}</h1>
+            <div class="who">admin · ${new Date().toLocaleDateString('zh-CN')}</div>
+          </header>
+          ${content}
+        </main>
+      </div>`;
+  }
+
+  function go(k) {
+    if (!isAdmin()) { renderLogin(); return; }
+    state.nav = k;
+    const map = {
+      overview: renderOverview, posts: renderPosts, persons: renderPersons, works: renderWorks,
+      points: renderPoints, articles: renderArticles, banner: renderBanner,
+      categories: renderCategories, backup: renderBackup
+    };
+    shell(k, (map[k] || renderOverview)());
+  }
+
+  /* ===== 概览 ===== */
+  function renderOverview() {
+    const posts = get('posts'), users = get('users'), persons = get('persons'), works = get('works');
+    const pendingPosts = posts.filter(p => p.status === 'pending').length;
+    const pendingWorks = works.filter(w => w.status === 'pending').length;
+    const openRewards = posts.filter(p => p.type === 'demand' && p.rewardPoint > 0 && !p.isFinish);
+    const frozenTotal = get('userPoints').reduce((s, p) => s + (p.frozen || 0), 0);
+    const availableTotal = get('userPoints').reduce((s, p) => s + (p.available || 0), 0);
+    return `
+      <div class="notice">当前后台直接读写<b>本浏览器</b>的 localStorage（与前台同源共享）。管理员在本机的操作只对本浏览器生效；跨设备真实用户数据需要后端服务支持。</div>
+      <div class="cards">
+        <div class="stat"><div class="k">帖子总数</div><div class="v">${posts.length}<small>待审 ${pendingPosts}</small></div></div>
+        <div class="stat"><div class="k">注册用户</div><div class="v">${users.length}<small>人</small></div></div>
+        <div class="stat"><div class="k">姬查查人物</div><div class="v">${persons.length}<small>位</small></div></div>
+        <div class="stat"><div class="k">作品总数</div><div class="v">${works.length}<small>待审 ${pendingWorks}</small></div></div>
+        <div class="stat"><div class="k">未结单悬赏</div><div class="v">${openRewards.length}<small>笔</small></div></div>
+        <div class="stat"><div class="k">冻结积分</div><div class="v">${frozenTotal}<small>可用 ${availableTotal}</small></div></div>
+      </div>
+      <div class="panel" style="margin-bottom:18px">
+        <div class="panel-head"><h2>待处理事项</h2></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>事项</th><th>数量</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td>待审核帖子</td><td><span class="tag ${pendingPosts ? 'tag-amber' : 'tag-gray'}">${pendingPosts}</span></td>
+                  <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('posts')">去审核</button></td></tr>
+              <tr><td>待审核作品</td><td><span class="tag ${pendingWorks ? 'tag-amber' : 'tag-gray'}">${pendingWorks}</span></td>
+                  <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('works')">去审核</button></td></tr>
+              <tr><td>未结单悬赏</td><td><span class="tag ${openRewards.length ? 'tag-violet' : 'tag-gray'}">${openRewards.length}</span></td>
+                  <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('posts')">去处理</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>最近积分流水</h2></div>
+        <div class="table-wrap">${logsTable(get('pointLogs').slice(0, 10))}</div>
+      </div>`;
+  }
+
+  function logsTable(logs) {
+    if (!logs.length) return '<div class="empty">暂无流水</div>';
+    return `<table class="table">
+      <thead><tr><th>用户</th><th>变动</th><th>类型</th><th>备注</th><th>时间</th></tr></thead>
+      <tbody>${logs.map(l => `<tr>
+        <td>${esc(l.userId)}</td>
+        <td style="color:${l.point >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${l.point >= 0 ? '+' : ''}${l.point}</td>
+        <td><span class="tag tag-gray">${esc(l.type)}</span></td>
+        <td><span class="t">${esc(l.remark || '-')}</span></td>
+        <td><span class="sub">${fmt(l.createdAt)}</span></td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  /* ===== 帖子审核 ===== */
+  const STATUS = {
+    approved: ['已通过', 'tag-green'],
+    pending: ['待审核', 'tag-amber'],
+    rejected: ['已驳回', 'tag-red'],
+  };
+  function renderPosts() {
+    const tab = state.postTab;
+    let posts = get('posts');
+    if (tab === 'pending') posts = posts.filter(p => p.status === 'pending');
+    else if (tab === 'demand') posts = posts.filter(p => p.type === 'demand');
+    else if (tab === 'share') posts = posts.filter(p => p.type === 'share');
+    const tabs = [['all','全部'],['pending','待审核'],['demand','求资源'],['share','我分享']]
+      .map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" onclick="Admin.setPostTab('${k}')">${l}</button>`).join('');
+    const rows = posts.map(p => {
+      const st = STATUS[p.status] || ['未知', 'tag-gray'];
+      const isDemand = p.type === 'demand';
+      const pointTag = isDemand
+        ? (p.rewardPoint > 0 ? `<span class="tag tag-violet">🏆 ${p.rewardPoint}</span>` : '<span class="tag tag-gray">无悬赏</span>')
+        : (p.unlockPoint > 0 ? `<span class="tag tag-violet">🔒 ${p.unlockPoint}</span>` : '<span class="tag tag-green">免费</span>');
+      const finishTag = isDemand && p.isFinish ? '<span class="tag tag-gray">已结单</span>' : '';
+      const rewardBtns = isDemand && p.rewardPoint > 0 && !p.isFinish ? `
+        <button class="btn btn-sm btn-ok" onclick="Admin.finishDemand('${p.id}')">结单发放</button>
+        <button class="btn btn-sm btn-ghost" onclick="Admin.refundDemand('${p.id}')">退回悬赏</button>` : '';
+      return `<tr>
+        <td><span class="tag ${isDemand ? 'tag-violet' : 'tag-gray'}">${isDemand ? '求资源' : '我分享'}</span></td>
+        <td><span class="t" title="${esc(p.title)}">${esc(p.title)}</span><span class="sub">${esc(p.resourceType || '')} · ${esc(p.userName || p.userId || '')}</span></td>
+        <td>${pointTag}</td>
+        <td><span class="tag ${st[1]}">${st[0]}</span> ${finishTag}</td>
+        <td><span class="sub">${fmt(p.createdAt)}</span></td>
+        <td><div class="cell-actions">
+          ${p.status !== 'approved' ? `<button class="btn btn-sm btn-ok" onclick="Admin.setStatus('${p.id}','approved')">通过</button>` : ''}
+          ${p.status !== 'rejected' ? `<button class="btn btn-sm btn-ghost" onclick="Admin.setStatus('${p.id}','rejected')">驳回</button>` : ''}
+          ${rewardBtns}
+          <button class="btn btn-sm btn-danger" onclick="Admin.delPost('${p.id}')">删除</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <div class="tabs">${tabs}</div>
+        <div class="actions"><span class="sub">共 ${posts.length} 条</span></div>
+      </div>
+      <div class="panel"><div class="table-wrap">
+        ${posts.length ? `<table class="table">
+          <thead><tr><th>类型</th><th>标题 / 作者</th><th>积分</th><th>状态</th><th>发布时间</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">暂无帖子</div>'}
+      </div></div>`;
+  }
+  function setStatus(id, status) {
+    const posts = get('posts');
+    const p = posts.find(x => x.id === id);
+    if (!p) return;
+    p.status = status;
+    set('posts', posts);
+    toast(status === 'approved' ? '已通过' : '已驳回');
+    go('posts');
+  }
+  function delPost(id) {
+    const posts = get('posts');
+    const p = posts.find(x => x.id === id);
+    if (!p) return;
+    if (!confirm(`确认删除「${p.title}」？`)) return;
+    if (p.type === 'demand' && p.rewardPoint > 0 && !p.isFinish) {
+      changePoints(p.userId, p.rewardPoint, `帖子删除，退回悬赏 - ${String(p.title).slice(0, 20)}`, 'demand_unfreeze');
+      setFrozen(p.userId, -p.rewardPoint);
+    }
+    set('posts', posts.filter(x => x.id !== id));
+    toast('已删除');
+    go('posts');
+  }
+  function finishDemand(id) {
+    const posts = get('posts');
+    const p = posts.find(x => x.id === id);
+    if (!p || p.isFinish) return;
+    const candidates = get('users');
+    const listHint = candidates.length
+      ? candidates.slice(0, 8).map(u => `${esc(u.nickname || u.username)}（${esc(u.id)}）`).join('<br>')
+      : '暂无注册用户';
+    const body = `
+      <div class="field"><label>悬赏金额</label><input class="input" value="${p.rewardPoint}" disabled></div>
+      <div class="field"><label>采纳者用户 ID</label><input class="input" id="f-receiver" placeholder="输入获得悬赏的用户 ID">
+        <div class="hint">可选用户：<br>${listHint}</div>
+      </div>
+      <div class="field"><label>备注</label><input class="input" id="f-remark" value="悬赏结单发放"></div>`;
+    openModal('结单发放悬赏', body, () => {
+      const receiver = document.getElementById('f-receiver').value.trim();
+      const remark = document.getElementById('f-remark').value.trim() || '悬赏结单发放';
+      if (!receiver) { toast('请填写采纳者 ID'); return false; }
+      const receiverPoints = get('userPoints').some(x => x.userId === receiver) || get('users').some(u => u.id === receiver);
+      if (!receiverPoints) { toast('该用户不存在，请检查 ID'); return false; }
+      if (receiver === p.userId) { toast('不能发放给发帖人自己'); return false; }
+      const held = pointsOf(p.userId).frozen;
+      if (held < p.rewardPoint) { toast(`发帖人冻结积分不足（当前 ${held}），无法结单`); return false; }
+      setFrozen(p.userId, -p.rewardPoint);
+      changePoints(receiver, p.rewardPoint, `获得悬赏：${String(p.title).slice(0, 20)}`, 'demand_reward');
+      p.isFinish = true;
+      set('posts', posts);
+      toast('已发放悬赏');
+      setTimeout(() => go('posts'), 60);
+      return true;
+    });
+  }
+  function refundDemand(id) {
+    const posts = get('posts');
+    const p = posts.find(x => x.id === id);
+    if (!p || p.isFinish) return;
+    if (!confirm(`确认退回 ${p.rewardPoint} 积分给发帖人？`)) return;
+    const held = pointsOf(p.userId).frozen;
+    if (held < p.rewardPoint) { toast(`冻结积分不足（当前 ${held}）`); return; }
+    setFrozen(p.userId, -p.rewardPoint);
+    changePoints(p.userId, p.rewardPoint, `悬赏退回 - ${String(p.title).slice(0, 20)}`, 'demand_unfreeze');
+    p.isFinish = true;
+    set('posts', posts);
+    toast('已退回悬赏');
+    go('posts');
+  }
+
+  /* ===== 人物 ===== */
+  function renderPersons() {
+    const persons = get('persons');
+    const rows = persons.map(p => {
+      const works = get('works').filter(w => w.personId === p.id).length;
+      return `<tr>
+        <td style="width:56px">${p.avatar ? `<img src="${esc(p.avatar)}" alt="" style="width:40px;height:40px;border-radius:10px;object-fit:cover">` : '<span class="tag tag-gray">无图</span>'}</td>
+        <td><span class="t">${esc(p.name)}</span><span class="sub">${esc(p.bio || '-')}</span></td>
+        <td><span class="tag tag-violet">${esc(p.tag || '未分类')}</span></td>
+        <td>${works}</td>
+        <td><span class="sub">${esc(p.baiduUrl ? '已填写' : '未填写')}</span></td>
+        <td><div class="cell-actions">
+          <button class="btn btn-sm btn-ghost" onclick="Admin.editPerson('${p.id}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="Admin.delPerson('${p.id}')">删除</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <h2>共 ${persons.length} 位人物</h2>
+        <div class="actions"><button class="btn btn-sm btn-primary" onclick="Admin.editPerson()">+ 新增人物</button></div>
+      </div>
+      <div class="panel"><div class="table-wrap">
+        ${persons.length ? `<table class="table">
+          <thead><tr><th>头像</th><th>姓名 / 简介</th><th>标签</th><th>作品数</th><th>百科</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">还没有人物，点击右上角新增</div>'}
+      </div></div>`;
+  }
+  function editPerson(id) {
+    const p = id ? get('persons').find(x => x.id === id) : {};
+    const tags = (get('categories').personTags) || [];
+    openModal(id ? '编辑人物' : '新增人物', `
+      <div class="field"><label>姓名 *</label><input class="input" id="f-name" value="${esc(p.name || '')}"></div>
+      <div class="field"><label>标签</label><input class="input" id="f-tag" value="${esc(p.tag || '')}" placeholder="如：演员 / 网红（可选：${esc(tags.join('、'))}）"></div>
+      <div class="field"><label>头像 URL</label><input class="input" id="f-avatar" value="${esc(p.avatar || '')}"></div>
+      <div class="field"><label>简介</label><textarea id="f-bio" rows="3">${esc(p.bio || '')}</textarea></div>
+      <div class="field"><label>百度百科链接</label><input class="input" id="f-baidu" value="${esc(p.baiduUrl || '')}"></div>`, () => {
+      const v = {
+        name: document.getElementById('f-name').value.trim(),
+        tag: document.getElementById('f-tag').value.trim(),
+        avatar: document.getElementById('f-avatar').value.trim(),
+        bio: document.getElementById('f-bio').value.trim(),
+        baiduUrl: document.getElementById('f-baidu').value.trim(),
+      };
+      if (!v.name) { toast('姓名不能为空'); return false; }
+      const arr = get('persons');
+      if (id) Object.assign(arr.find(x => x.id === id), v);
+      else arr.unshift({ id: uid(), ...v });
+      set('persons', arr);
+      toast('已保存');
+      setTimeout(() => go('persons'), 60);
+      return true;
+    });
+  }
+  function delPerson(id) {
+    const p = get('persons').find(x => x.id === id);
+    if (!p) return;
+    if (!confirm(`确认删除人物「${p.name}」？其关联作品不会被删除。`)) return;
+    set('persons', get('persons').filter(x => x.id !== id));
+    toast('已删除');
+    go('persons');
+  }
+
+  /* ===== 作品 ===== */
+  function renderWorks() {
+    const works = get('works');
+    const rows = works.map(w => {
+      const st = STATUS[w.status] || ['已通过', 'tag-green'];
+      return `<tr>
+        <td><span class="t">${esc(w.title)}</span><span class="sub">${esc(w.netdiskType || '')} · ${esc(w.userName || w.userId || '')}</span></td>
+        <td>${esc(personName(w.personId))}</td>
+        <td><span class="sub">${esc(w.link || '-')}</span></td>
+        <td><span class="tag ${st[1]}">${st[0]}</span></td>
+        <td><span class="sub">${fmt(w.createdAt)}</span></td>
+        <td><div class="cell-actions">
+          ${w.status !== 'approved' ? `<button class="btn btn-sm btn-ok" onclick="Admin.setWorkStatus('${w.id}','approved')">通过</button>` : ''}
+          ${w.status !== 'rejected' ? `<button class="btn btn-sm btn-ghost" onclick="Admin.setWorkStatus('${w.id}','rejected')">驳回</button>` : ''}
+          <button class="btn btn-sm btn-ghost" onclick="Admin.editWork('${w.id}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="Admin.delWork('${w.id}')">删除</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <h2>共 ${works.length} 个作品</h2>
+        <div class="actions"><button class="btn btn-sm btn-primary" onclick="Admin.editWork()">+ 新增作品</button></div>
+      </div>
+      <div class="panel"><div class="table-wrap">
+        ${works.length ? `<table class="table">
+          <thead><tr><th>作品 / 投稿人</th><th>所属人物</th><th>网盘链接</th><th>状态</th><th>提交时间</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">暂无作品投稿</div>'}
+      </div></div>`;
+  }
+  function editWork(id) {
+    const w = id ? get('works').find(x => x.id === id) : {};
+    const persons = get('persons');
+    const options = '<option value="">未关联</option>' + persons.map(p =>
+      `<option value="${p.id}" ${p.id === w.personId ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+    const discs = (get('categories').netdiskTypes) || ['百度网盘','阿里云盘','夸克网盘'];
+    openModal(id ? '编辑作品' : '新增作品', `
+      <div class="field"><label>所属人物</label><select id="f-person">${options}</select></div>
+      <div class="field"><label>作品标题 *</label><input class="input" id="f-title" value="${esc(w.title || '')}"></div>
+      <div class="field"><label>网盘类型</label><input class="input" id="f-disk" value="${esc(w.netdiskType || discs[0])}"></div>
+      <div class="field"><label>网盘链接</label><input class="input" id="f-link" value="${esc(w.link || '')}"></div>
+      <div class="field"><label>提取码</label><input class="input" id="f-code" value="${esc(w.extractCode || '')}"></div>
+      <div class="field"><label>封面 URL</label><input class="input" id="f-cover" value="${esc(w.cover || '')}"></div>
+      <div class="field"><label>说明</label><textarea id="f-content" rows="3">${esc(w.content || '')}</textarea></div>`, () => {
+      const v = {
+        personId: document.getElementById('f-person').value,
+        title: document.getElementById('f-title').value.trim(),
+        netdiskType: document.getElementById('f-disk').value.trim(),
+        link: document.getElementById('f-link').value.trim(),
+        extractCode: document.getElementById('f-code').value.trim(),
+        cover: document.getElementById('f-cover').value.trim(),
+        content: document.getElementById('f-content').value.trim(),
+      };
+      if (!v.title) { toast('标题不能为空'); return false; }
+      const arr = get('works');
+      if (id) Object.assign(arr.find(x => x.id === id), v);
+      else arr.unshift({ id: uid(), ...v, resourceType: '素材', unlockPoint: 0, userId: 'admin', userName: '管理员', status: 'approved', createdAt: Date.now() });
+      set('works', arr);
+      toast('已保存');
+      setTimeout(() => go('works'), 60);
+      return true;
+    });
+  }
+  function setWorkStatus(id, status) {
+    const arr = get('works');
+    const w = arr.find(x => x.id === id);
+    if (!w) return;
+    w.status = status;
+    set('works', arr);
+    toast('已更新');
+    go('works');
+  }
+  function delWork(id) {
+    if (!confirm('确认删除该作品？')) return;
+    set('works', get('works').filter(x => x.id !== id));
+    toast('已删除');
+    go('works');
+  }
+
+  /* ===== 积分 ===== */
+  function renderPoints(q) {
+    const query = q !== undefined ? q : lastQuery;
+    const users = get('users');
+    const keyword = query.trim().toLowerCase();
+    const list = users.filter(u => !keyword ||
+      (u.nickname || '').toLowerCase().includes(keyword) ||
+      (u.username || '').toLowerCase().includes(keyword) ||
+      (u.id || '').toLowerCase().includes(keyword));
+    const rows = list.map(u => {
+      const p = pointsOf(u.id);
+      return `<tr>
+        <td><span class="t">${esc(u.nickname || u.username || '-')}</span><span class="sub">${esc(u.id)}</span></td>
+        <td style="color:var(--green);font-weight:600">${p.available}</td>
+        <td style="color:var(--amber)">${p.frozen}</td>
+        <td>${p.totalGain}</td>
+        <td><div class="cell-actions">
+          <button class="btn btn-sm btn-ok" onclick="Admin.adjustPoints('${u.id}', 1)">+ 发放</button>
+          <button class="btn btn-sm btn-ghost" onclick="Admin.adjustPoints('${u.id}', -1)">- 扣减</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <div class="field" style="display:flex;gap:8px;align-items:center;margin:0">
+          <input class="input" id="pt-search" style="width:240px" placeholder="搜索昵称 / 用户名 / ID" value="${esc(query)}">
+          <button class="btn btn-sm btn-ghost" onclick="Admin.searchPoints()">搜索</button>
+        </div>
+        <div class="actions"><span class="sub">共 ${list.length} 位用户</span></div>
+      </div>
+      <div class="panel" style="margin-bottom:18px"><div class="table-wrap">
+        ${list.length ? `<table class="table">
+          <thead><tr><th>用户</th><th>可用积分</th><th>冻结积分</th><th>累计获得</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">暂无注册用户（用户在前台注册后才会出现）</div>'}
+      </div></div>
+      <div class="panel">
+        <div class="panel-head"><h2>最近积分流水</h2></div>
+        <div class="table-wrap">${logsTable(get('pointLogs').slice(0, 20))}</div>
+      </div>`;
+  }
+  function searchPoints() {
+    go('points');
+    const q = document.getElementById('pt-search').value;
+    lastQuery = q;
+    shell('points', renderPoints(q));
+  }
+  function adjustPoints(userId, dir) {
+    const p = pointsOf(userId);
+    openModal(dir > 0 ? '发放积分' : '扣减积分', `
+      <div class="field"><label>用户 ID</label><input class="input" value="${esc(userId)}" disabled></div>
+      <div class="field"><label>当前可用积分</label><input class="input" value="${p.available}" disabled></div>
+      <div class="field"><label>${dir > 0 ? '发放' : '扣减'}数量 *</label><input class="input" id="f-amount" type="number" min="1" value="100"></div>
+      <div class="field"><label>备注</label><input class="input" id="f-remark" value="${dir > 0 ? '管理员发放' : '管理员扣减'}"></div>`, () => {
+      const amount = Math.abs(parseInt(document.getElementById('f-amount').value) || 0);
+      const remark = document.getElementById('f-remark').value.trim();
+      if (!amount) { toast('请输入数量'); return false; }
+      if (dir < 0 && amount > p.available) { toast('扣减数量不能超过可用积分'); return false; }
+      changePoints(userId, dir * amount, remark, dir > 0 ? 'admin_give' : 'admin_deduct');
+      toast('操作成功');
+      setTimeout(() => go('points'), 60);
+      return true;
+    });
+  }
+
+  /* ===== 站长推荐 ===== */
+  function renderArticles() {
+    const list = get('articles');
+    const rows = list.map(a => `<tr>
+      <td style="width:72px">${a.cover ? `<img src="${esc(a.cover)}" alt="" style="width:60px;height:36px;border-radius:8px;object-fit:cover">` : '<span class="tag tag-gray">无封面</span>'}</td>
+      <td><span class="t">${esc(a.title)}</span><span class="sub">${esc(a.excerpt || '')}</span></td>
+      <td>${a.pinned ? '<span class="tag tag-amber">置顶</span>' : '<span class="tag tag-gray">普通</span>'}</td>
+      <td>${a.views || 0}</td>
+      <td><span class="sub">${fmt(a.createdAt)}</span></td>
+      <td><div class="cell-actions">
+        <button class="btn btn-sm btn-ghost" onclick="Admin.editArticle('${a.id}')">编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="Admin.delArticle('${a.id}')">删除</button>
+      </div></td>
+    </tr>`).join('');
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <h2>共 ${list.length} 篇文章</h2>
+        <div class="actions"><button class="btn btn-sm btn-primary" onclick="Admin.editArticle()">+ 新增文章</button></div>
+      </div>
+      <div class="panel"><div class="table-wrap">
+        ${list.length ? `<table class="table">
+          <thead><tr><th>封面</th><th>标题 / 摘要</th><th>置顶</th><th>浏览</th><th>创建时间</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">暂无推荐文章</div>'}
+      </div></div>`;
+  }
+  function editArticle(id) {
+    const a = id ? get('articles').find(x => x.id === id) : {};
+    openModal(id ? '编辑文章' : '新增文章', `
+      <div class="field"><label>标题 *</label><input class="input" id="f-title" value="${esc(a.title || '')}"></div>
+      <div class="field"><label>封面 URL</label><input class="input" id="f-cover" value="${esc(a.cover || '')}"></div>
+      <div class="field"><label>摘要</label><textarea id="f-excerpt" rows="2">${esc(a.excerpt || '')}</textarea></div>
+      <div class="field"><label>正文（支持 HTML）</label><textarea id="f-content" rows="6">${esc(a.content || '')}</textarea></div>
+      <div class="field"><label>作者</label><input class="input" id="f-author" value="${esc(a.author || '站长')}"></div>
+      <div class="field" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="f-pinned" ${a.pinned ? 'checked' : ''} style="width:auto">
+        <label for="f-pinned" style="margin:0">置顶推荐</label>
+      </div>`, () => {
+      const v = {
+        title: document.getElementById('f-title').value.trim(),
+        cover: document.getElementById('f-cover').value.trim(),
+        excerpt: document.getElementById('f-excerpt').value.trim(),
+        content: document.getElementById('f-content').value,
+        author: document.getElementById('f-author').value.trim() || '站长',
+        pinned: document.getElementById('f-pinned').checked,
+      };
+      if (!v.title) { toast('标题不能为空'); return false; }
+      const arr = get('articles');
+      if (id) Object.assign(arr.find(x => x.id === id), v);
+      else arr.unshift({ id: uid(), ...v, views: 0, createdAt: Date.now() });
+      set('articles', arr);
+      toast('已保存');
+      setTimeout(() => go('articles'), 60);
+      return true;
+    });
+  }
+  function delArticle(id) {
+    if (!confirm('确认删除这篇文章？')) return;
+    set('articles', get('articles').filter(x => x.id !== id));
+    toast('已删除');
+    go('articles');
+  }
+
+  /* ===== Banner ===== */
+  function renderBanner() {
+    const list = get('banner');
+    const rows = list.map(b => `<tr>
+      <td style="width:90px">${b.image ? `<img src="${esc(b.image)}" alt="" style="width:80px;height:44px;border-radius:8px;object-fit:cover">` : '<span class="tag tag-gray">无图</span>'}</td>
+      <td><span class="t">${esc(b.title)}</span><span class="sub">${esc(b.desc || '')}</span></td>
+      <td>${esc(b.tag || '-')}</td>
+      <td><div class="cell-actions">
+        <button class="btn btn-sm btn-ghost" onclick="Admin.editBanner('${b.id}')">编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="Admin.delBanner('${b.id}')">删除</button>
+      </div></td>
+    </tr>`).join('');
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <h2>共 ${list.length} 张轮播</h2>
+        <div class="actions"><button class="btn btn-sm btn-primary" onclick="Admin.editBanner()">+ 新增 Banner</button></div>
+      </div>
+      <div class="panel"><div class="table-wrap">
+        ${list.length ? `<table class="table">
+          <thead><tr><th>图片</th><th>标题 / 描述</th><th>标签</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">暂无 Banner</div>'}
+      </div></div>`;
+  }
+  function editBanner(id) {
+    const b = id ? get('banner').find(x => x.id === id) : {};
+    openModal(id ? '编辑 Banner' : '新增 Banner', `
+      <div class="field"><label>标题 *</label><input class="input" id="f-title" value="${esc(b.title || '')}"></div>
+      <div class="field"><label>描述</label><input class="input" id="f-desc" value="${esc(b.desc || '')}"></div>
+      <div class="field"><label>角标文字</label><input class="input" id="f-tag" value="${esc(b.tag || '')}"></div>
+      <div class="field"><label>图片 URL *</label><input class="input" id="f-image" value="${esc(b.image || '')}"></div>`, () => {
+      const v = {
+        title: document.getElementById('f-title').value.trim(),
+        desc: document.getElementById('f-desc').value.trim(),
+        tag: document.getElementById('f-tag').value.trim(),
+        image: document.getElementById('f-image').value.trim(),
+      };
+      if (!v.title || !v.image) { toast('标题和图片不能为空'); return false; }
+      const arr = get('banner');
+      if (id) Object.assign(arr.find(x => x.id === id), v);
+      else arr.unshift({ id: uid(), ...v });
+      set('banner', arr);
+      toast('已保存');
+      setTimeout(() => go('banner'), 60);
+      return true;
+    });
+  }
+  function delBanner(id) {
+    if (!confirm('确认删除这张 Banner？')) return;
+    set('banner', get('banner').filter(x => x.id !== id));
+    toast('已删除');
+    go('banner');
+  }
+
+  /* ===== 分类 ===== */
+  function renderCategories() {
+    const c = get('categories') || {};
+    const join = a => (Array.isArray(a) ? a.join('，') : '');
+    return `
+      <div class="panel" style="margin-bottom:18px">
+        <div class="panel-head"><h2>分类配置</h2><div class="actions">
+          <button class="btn btn-sm btn-primary" onclick="Admin.saveCategories()">保存配置</button></div></div>
+        <div class="panel-body" style="padding:18px">
+          <div class="field"><label>资源类型（逗号分隔）</label><textarea id="c-res" rows="2">${esc(join(c.resourceTypes))}</textarea></div>
+          <div class="field"><label>网盘类型（逗号分隔）</label><textarea id="c-disk" rows="2">${esc(join(c.netdiskTypes))}</textarea></div>
+          <div class="field"><label>人物标签（逗号分隔）</label><textarea id="c-tags" rows="2">${esc(join(c.personTags))}</textarea></div>
+          <div class="hint">支持中文逗号或英文逗号分隔；保存后前台投稿与筛选选项会同步更新。</div>
+        </div>
+      </div>`;
+  }
+  function saveCategories() {
+    const split = v => v.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+    const categories = {
+      resourceTypes: split(document.getElementById('c-res').value),
+      netdiskTypes: split(document.getElementById('c-disk').value),
+      personTags: split(document.getElementById('c-tags').value),
+    };
+    set('categories', categories);
+    toast('分类已更新');
+    go('categories');
+  }
+
+  /* ===== 备份 ===== */
+  function renderBackup() {
+    const sizes = KEYS.map(k => {
+      const raw = localStorage.getItem(k);
+      return { key: k, count: Array.isArray(get(k)) ? get(k).length : 1, bytes: raw ? raw.length : 0 };
+    });
+    return `
+      <div class="notice">导出的 JSON 包含本浏览器全部业务数据，可用于迁移或留档。导入会<b>覆盖</b>同名数据，请先导出备份。</div>
+      <div class="panel" style="margin-bottom:18px">
+        <div class="panel-head"><h2>数据导出 / 导入</h2><div class="actions">
+          <button class="btn btn-sm btn-primary" onclick="Admin.exportData()">导出 JSON</button>
+          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('imp-file').click()">导入 JSON</button>
+          <input type="file" id="imp-file" accept="application/json" style="display:none" onchange="Admin.importData(this)">
+        </div></div>
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>数据表</th><th>记录数</th><th>占用字节</th></tr></thead>
+          <tbody>${sizes.map(s => `<tr>
+            <td>${s.key}</td><td>${s.count}</td><td>${s.bytes}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>危险操作</h2></div>
+        <div class="panel-body" style="padding:18px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-danger" onclick="Admin.resetAll()">清空全部数据</button>
+          <button class="btn btn-ghost" onclick="Admin.seedDemo()">恢复示例数据</button>
+        </div>
+      </div>`;
+  }
+  function exportData() {
+    const data = {};
+    KEYS.forEach(k => { const raw = localStorage.getItem(k); if (raw !== null) { try { data[k] = JSON.parse(raw); } catch { data[k] = raw; } } });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `vision-she-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('已导出');
+  }
+  function importData(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const obj = JSON.parse(reader.result);
+        if (!confirm('导入将覆盖当前同名数据，确认继续？')) return;
+        KEYS.forEach(k => { if (obj[k] !== undefined) set(k, obj[k]); });
+        toast('导入完成');
+        go('backup');
+      } catch { toast('文件格式错误'); }
+    };
+    reader.readAsText(file);
+    input.value = '';
+  }
+  function resetAll() {
+    if (!confirm('将清空帖子/人物/作品/用户/积分/文章/Banner 等全部数据，且不可恢复。确认？')) return;
+    KEYS.forEach(k => localStorage.removeItem(k));
+    toast('已清空');
+    go('overview');
+  }
+  function seedDemo() {
+    if (!confirm('恢复示例数据会覆盖当前数据，确认？')) return;
+    KEYS.forEach(k => localStorage.removeItem(k));
+    toast('已重置，刷新前台即可生成示例数据');
+    setTimeout(() => { location.href = 'index.html'; }, 800);
+  }
+
+  /* ===== 弹窗 ===== */
+  function openModal(title, bodyHtml, onOk) {
+    closeModal();
+    const mask = document.createElement('div');
+    mask.className = 'mask';
+    mask.id = 'mask';
+    mask.innerHTML = `
+      <div class="modal">
+        <h3>${title}</h3>
+        <div class="modal-body">${bodyHtml}</div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" id="md-cancel">取消</button>
+          <button class="btn btn-primary" id="md-ok">确定</button>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+    mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
+    document.getElementById('md-cancel').onclick = closeModal;
+    document.getElementById('md-ok').onclick = () => { const r = onOk(); if (r !== false) closeModal(); };
+  }
+  function closeModal() {
+    const m = document.getElementById('mask');
+    if (m) m.remove();
+  }
+
+  function boot() {
+    if (isAdmin()) go('overview');
+    else renderLogin();
+  }
+
+  return {
+    go, logout, boot, openModal, closeModal,
+    setPostTab: k => { state.postTab = k; go('posts'); },
+    setStatus, delPost, finishDemand, refundDemand,
+    editPerson, delPerson,
+    editWork, setWorkStatus, delWork,
+    searchPoints, adjustPoints,
+    editArticle, delArticle,
+    editBanner, delBanner,
+    saveCategories,
+    exportData, importData, resetAll, seedDemo,
+  };
+})();
+window.Admin = Admin;
+Admin.boot();
+</script>
+</body>
+</html>
