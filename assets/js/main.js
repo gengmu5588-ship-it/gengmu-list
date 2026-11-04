@@ -622,6 +622,22 @@ const App = (() => {
           </div>
           <div class="article-content">${formatArticleContent(a.content)}</div>
           ${renderDriveCard(a)}
+          ${(() => {
+            const rp = a.relatedPost || (a.relatedPostId
+              ? getDB('posts').find(p => p.id === a.relatedPostId && p.status === 'approved')
+              : null);
+            if (!rp) return '';
+            return `
+              <div class="related-post-card" onclick="App.openPost('${rp.id}')">
+                <div class="related-post-icon"><i class="fas ${rp.type === 'demand' ? 'fa-search' : 'fa-share-nodes'}"></i></div>
+                <div class="related-post-info">
+                  <div class="related-post-label">关联帖子 · ${rp.type === 'demand' ? '求资源' : '我分享'}</div>
+                  <div class="related-post-title">${escapeHtml(rp.title)}</div>
+                </div>
+                <i class="fas fa-chevron-right related-post-arrow"></i>
+              </div>
+            `;
+          })()}
         </div>
       </article>
 
@@ -1087,6 +1103,10 @@ const App = (() => {
   // ===== 登录/注册 =====
   function showLoginModal() {
     const modal = openModal(`
+      <div style="display:flex;align-items:center;justify-content:center;gap:0.625rem;margin-bottom:1.25rem;">
+        <img src="assets/img/logo.svg" alt="视觉社" width="46" height="46" style="border-radius:13px;box-shadow:var(--shadow-glow);">
+        <div style="font-size:1.125rem;font-weight:700;color:var(--color-text);">视觉社 · 账号登录</div>
+      </div>
       <div class="form-group">
         <label class="form-label">账号</label>
         <input class="form-input" id="loginUser" placeholder="请输入账号">
@@ -1610,6 +1630,31 @@ const App = (() => {
     }
 
     overlay.addEventListener('click', (e) => {
+      // 多选芯片：同步选中态（label 原生切换 checkbox，这里补视觉类）
+      const chip = e.target.closest && e.target.closest('.checkbox-item');
+      if (chip) {
+        const cb = chip.querySelector('input[type="checkbox"]');
+        if (cb) setTimeout(() => {
+          chip.classList.toggle('selected', cb.checked);
+          // 「不限」与其他选项互斥
+          if (cb.checked && cb.value === '不限') {
+            chip.parentElement.querySelectorAll('.checkbox-item').forEach(it => {
+              if (it === chip) return;
+              const c = it.querySelector('input');
+              if (c) c.checked = false;
+              it.classList.remove('selected');
+            });
+          } else if (cb.checked) {
+            const un = [...chip.parentElement.querySelectorAll('.checkbox-item')]
+              .find(it => (it.querySelector('input') || {}).value === '不限');
+            if (un) {
+              const uc = un.querySelector('input');
+              if (uc) uc.checked = false;
+              un.classList.remove('selected');
+            }
+          }
+        }, 0);
+      }
       if (e.target === overlay) closeModal();
     });
 
@@ -1621,11 +1666,27 @@ const App = (() => {
     container.innerHTML = '';
   }
 
+  // ===== 明暗主题 =====
+  function syncThemeIcon() {
+    const btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    btn.innerHTML = light ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+    btn.title = light ? '切换到暗色模式' : '切换到亮色模式';
+  }
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('vs-theme', next); } catch (e) {}
+    syncThemeIcon();
+  }
+
   // ===== 启动 =====
   async function init() {
     // 初始导航高亮
     const links = document.querySelectorAll('.nav-link');
     links.forEach(l => l.classList.toggle('active', l.dataset.route === 'home'));
+    syncThemeIcon();
     try {
       await loadBootstrap();
       if (getToken()) await loadMe();
@@ -1648,7 +1709,7 @@ const App = (() => {
     showSubmitModal, switchSubmitTab, showWorkSubmitModal,
     openArticle, openPost, openPerson, unlockPost, doSignin,
     postComment, unlockArticle, copyText,
-    showRule, showDisclaimer, showPrivacy, showReport, toggleUserMenu
+    showRule, showDisclaimer, showPrivacy, showReport, toggleUserMenu, toggleTheme
   };
 
   // 挂到全局

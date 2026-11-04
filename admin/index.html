@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>视觉社 · 管理后台</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/img/logo-192.png">
 <style>
   :root{
     --bg:#0b0a12; --panel:#14111f; --panel-2:#1a1626; --line:rgba(139,92,246,.18);
@@ -180,7 +182,7 @@ const Admin = (() => {
     document.getElementById('app').innerHTML = `
       <div class="login-wrap">
         <div class="login-card">
-          <div class="logo-row"><span class="logo-mark">视</span><div><h1>视觉社 · 管理后台</h1></div></div>
+          <div class="logo-row"><img src="/assets/img/logo.svg" alt="视觉社" width="40" height="40" style="border-radius:12px"><div><h1>视觉社 · 管理后台</h1></div></div>
           <p>请输入管理员账号密码（默认 admin / 123456）</p>
           <div class="field"><label>账号</label><input class="input" id="lg-user" placeholder="账号" value="admin"></div>
           <div class="field"><label>密码</label><input class="input" id="lg-pwd" type="password" placeholder="密码"></div>
@@ -240,7 +242,10 @@ const Admin = (() => {
     document.getElementById('app').innerHTML = `
       <div class="layout">
         <aside class="side">
-          <div class="brand"><b>视觉社</b><em>ADMIN CONSOLE</em></div>
+          <div class="brand" style="display:flex;align-items:center;gap:10px">
+            <img src="/assets/img/logo.svg" alt="" width="30" height="30" style="border-radius:9px">
+            <div><b>视觉社</b><em>ADMIN CONSOLE</em></div>
+          </div>
           <nav>${nav}</nav>
           <div class="side-foot">
             <a href="../index.html">← 返回前台</a>
@@ -361,6 +366,7 @@ const Admin = (() => {
         <td><div class="cell-actions">
           ${p.status !== 'approved' ? `<button class="btn btn-sm btn-ok" onclick="Admin.setStatus('${p.id}','approved')">通过</button>` : ''}
           ${p.status !== 'rejected' ? `<button class="btn btn-sm btn-ghost" onclick="Admin.setStatus('${p.id}','rejected')">驳回</button>` : ''}
+          ${p.type === 'share' && p.status === 'approved' ? `<button class="btn btn-sm btn-primary" onclick="Admin.postToArticle('${p.id}')">发布为推荐</button>` : ''}
           ${rewardBtns}
           <button class="btn btn-sm btn-danger" onclick="Admin.delPost('${p.id}')">删除</button>
         </div></td>
@@ -702,8 +708,25 @@ const Admin = (() => {
     if (!url) return;
     wrapSel(id, `<a href="${url}" target="_blank" rel="noopener">`, '</a>', '链接文字');
   }
-  function editArticle(id) {
-    const a = id ? get('articles').find(x => x.id === id) : {};
+  // 投稿帖一键转为推荐文章（预填网盘信息并关联原帖）
+  function postToArticle(id) {
+    const p = (state.data.posts || []).find(x => x.id === id);
+    if (!p) { toast('帖子不存在'); return; }
+    const excerpt = String(p.content || '').replace(/<[^>]+>/g, '').trim().slice(0, 80);
+    editArticle(null, {
+      title: p.title,
+      cover: p.cover || '',
+      excerpt,
+      content: `<p>${esc(String(p.content || '').replace(/<[^>]+>/g, '').trim()).replace(/\n/g, '<br>')}</p>`,
+      driveType: p.netdiskType || '',
+      driveLink: p.link || '',
+      driveCode: p.extractCode || '',
+      drivePoint: p.unlockPoint || 0,
+      relatedPostId: p.id,
+    });
+  }
+  function editArticle(id, prefill = {}) {
+    const a = id ? get('articles').find(x => x.id === id) : prefill;
     openModal(id ? '编辑文章' : '新增文章', `
       <div class="field"><label>标题 *</label><input class="input" id="f-title" value="${esc(a.title || '')}"></div>
       <div class="field"><label>封面 URL</label><input class="input" id="f-cover" value="${esc(a.cover || '')}"></div>
@@ -723,6 +746,15 @@ const Admin = (() => {
       <div class="field" style="display:flex;align-items:center;gap:8px">
         <input type="checkbox" id="f-pinned" ${a.pinned ? 'checked' : ''} style="width:auto">
         <label for="f-pinned" style="margin:0">置顶推荐</label>
+      </div>
+      <div class="field">
+        <label>关联帖子（文章页展示入口，点击跳转对应帖）</label>
+        <select class="input" id="f-related-post">
+          <option value="">不关联</option>
+          ${(get('posts') || []).filter(p => p.status === 'approved').map(p =>
+            `<option value="${esc(p.id)}" ${a.relatedPostId === p.id ? 'selected' : ''}>[${p.type === 'demand' ? '求资源' : '我分享'}] ${esc(p.title)}</option>`
+          ).join('')}
+        </select>
       </div>
       <div class="field" style="border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
         <label style="font-weight:600;color:var(--text)">📎 文末网盘链接（选填）</label>
@@ -749,6 +781,7 @@ const Admin = (() => {
         driveLink: document.getElementById('f-drive-link').value.trim(),
         driveCode: document.getElementById('f-drive-code').value.trim(),
         drivePoint: Math.max(0, parseInt(document.getElementById('f-drive-point').value, 10) || 0),
+        relatedPostId: document.getElementById('f-related-post') ? document.getElementById('f-related-post').value : '',
       };
       if (!v.title) { toast('标题不能为空'); return false; }
       if (v.driveLink && !/^https?:\/\//.test(v.driveLink)) { toast('网盘链接需以 http(s):// 开头'); return false; }
@@ -950,7 +983,7 @@ const Admin = (() => {
     editPerson, delPerson,
     editWork, setWorkStatus, delWork,
     searchPoints, adjustPoints,
-    editArticle, delArticle, wrapSel, fmtLink, delComment,
+    editArticle, postToArticle, delArticle, wrapSel, fmtLink, delComment,
     editBanner, delBanner,
     saveCategories,
     exportData,
