@@ -124,15 +124,16 @@
 <div class="toast" id="toast"></div>
 <script>
 const Admin = (() => {
-  const KEYS = ['articles','posts','persons','works','users','userPoints','pointLogs','signRecords','unlockRecords','categories','banner'];
-  const get = k => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } };
-  const set = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const TOKEN_KEY = 'vision_token';
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt = t => t ? new Date(t).toLocaleString('zh-CN', { hour12: false }) : '-';
 
-  let state = { nav: 'overview', postTab: 'all' };
+  let state = {
+    nav: 'overview', postTab: 'all',
+    data: { articles: [], posts: [], persons: [], works: [], banner: [], categories: { resourceTypes: [], netdiskTypes: [], personTags: [] }, users: [], logs: [], stats: {} }
+  };
   let lastQuery = '';
+  let adminUser = null;
 
   /* ===== 基础 ===== */
   function toast(msg) {
@@ -140,38 +141,41 @@ const Admin = (() => {
     el.textContent = msg; el.classList.add('show');
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800);
   }
+
+  async function api(path, options = {}) {
+    const headers = Object.assign({}, options.headers || {});
+    if (options.body !== undefined && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    const token = localStorage.getItem(TOKEN_KEY) || '';
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(path, Object.assign({}, options, { headers }));
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) throw new Error((data && data.error) || `请求失败（${res.status}）`);
+    return data;
+  }
+
+  async function loadAdmin() {
+    state.data = await api('/api/admin/bootstrap');
+  }
+
+  const get = k => {
+    const d = state.data;
+    if (k === 'userPoints') return (d.users || []).map(u => Object.assign({ userId: u.id }, u.points || { available: 0, frozen: 0, totalGain: 0 }));
+    if (k === 'pointLogs') return d.logs || [];
+    return d[k] !== undefined && d[k] !== null ? d[k] : [];
+  };
+  const set = () => { /* 数据写入统一走 API */ };
   function pointsOf(id) {
-    const arr = get('userPoints');
-    return arr.find(p => p.userId === id) || { userId: id, available: 0, frozen: 0, totalGain: 0 };
-  }
-  function addLog(userId, point, type, remark) {
-    const logs = get('pointLogs');
-    logs.unshift({ id: uid(), userId, point, type, remark, relateId: '', createdAt: Date.now() });
-    set('pointLogs', logs.slice(0, 500));
-  }
-  function changePoints(userId, delta, remark, type) {
-    const arr = get('userPoints');
-    let u = arr.find(p => p.userId === userId);
-    if (!u) { u = { userId, available: 0, frozen: 0, totalGain: 0 }; arr.push(u); }
-    u.available = Math.max(0, u.available + delta);
-    if (delta > 0) u.totalGain += delta;
-    set('userPoints', arr);
-    addLog(userId, delta, type || (delta > 0 ? 'admin_give' : 'admin_deduct'), remark);
-  }
-  function setFrozen(userId, delta) {
-    const arr = get('userPoints');
-    let u = arr.find(p => p.userId === userId);
-    if (!u) { u = { userId, available: 0, frozen: 0, totalGain: 0 }; arr.push(u); }
-    u.frozen = Math.max(0, u.frozen + delta);
-    set('userPoints', arr);
+    const u = (state.data.users || []).find(x => x.id === id);
+    return (u && u.points) || { available: 0, frozen: 0, totalGain: 0 };
   }
   function personName(id) {
-    const p = get('persons').find(x => x.id === id);
+    const p = (state.data.persons || []).find(x => x.id === id);
     return p ? p.name : '（人物已删除）';
   }
 
   /* ===== 登录 ===== */
-  function isAdmin() { return localStorage.getItem('admin') === 'ok'; }
+  function isAdmin() { return !!adminUser; }
   function renderLogin(msg) {
     document.getElementById('app').innerHTML = `
       <div class="login-wrap">
@@ -188,25 +192,31 @@ const Admin = (() => {
           <p style="margin:16px 0 0;text-align:center"><a href="../index.html" style="color:var(--muted)">← 返回前台</a></p>
         </div>
       </div>`;
-    const doLogin = () => {
+    const doLogin = async () => {
       const u = document.getElementById('lg-user').value.trim();
       const p = document.getElementById('lg-pwd').value;
-      const cfg = get('adminConfig');
-      const conf = Array.isArray(cfg) ? (cfg[0] || null) : (cfg && typeof cfg === 'object' ? cfg : null);
-      const admins = (conf && Array.isArray(conf.admins) && conf.admins.length)
-        ? conf.admins
-        : [{ username: conf?.username || 'admin', password: conf?.password || '123456' }];
-      if (!admins.some(a => a.username === u && a.password === p)) { toast('账号或密码错误'); return; }
-      localStorage.setItem('admin', 'ok');
-      localStorage.setItem('adminRemember', document.getElementById('lg-remember').checked ? 'true' : 'false');
-      go(state.nav);
-      toast('登录成功');
+      if (!u || !p) { toast('请输入账号和密码'); return; }
+      const btn = document.getElementById('lg-btn');
+      btn.disabled = true; btn.textContent = '登录中...';
+      try {
+        const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
+        if (!r.user || r.user.role !== 'admin') { toast('该账号不是管理员'); return; }
+        localStorage.setItem(TOKEN_KEY, r.token);
+        adminUser = r.user;
+        toast('登录成功');
+        go('overview');
+      } catch (e) {
+        toast(e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '登 录';
+      }
     };
     document.getElementById('lg-btn').onclick = doLogin;
     document.getElementById('lg-pwd').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
   }
   function logout() {
-    localStorage.removeItem('admin');
+    localStorage.removeItem(TOKEN_KEY);
+    adminUser = null;
     renderLogin();
   }
 
@@ -247,9 +257,16 @@ const Admin = (() => {
       </div>`;
   }
 
-  function go(k) {
+  async function go(k) {
     if (!isAdmin()) { renderLogin(); return; }
     state.nav = k;
+    try {
+      await loadAdmin();
+    } catch (e) {
+      const msg = String(e.message || '');
+      if (msg.includes('登录') || msg.includes('管理员') || msg.includes('权限')) { logout(); return; }
+      toast(msg || '数据加载失败');
+    }
     const map = {
       overview: renderOverview, posts: renderPosts, persons: renderPersons, works: renderWorks,
       points: renderPoints, articles: renderArticles, banner: renderBanner,
@@ -267,7 +284,7 @@ const Admin = (() => {
     const frozenTotal = get('userPoints').reduce((s, p) => s + (p.frozen || 0), 0);
     const availableTotal = get('userPoints').reduce((s, p) => s + (p.available || 0), 0);
     return `
-      <div class="notice">当前后台直接读写<b>本浏览器</b>的 localStorage（与前台同源共享）。管理员在本机的操作只对本浏览器生效；跨设备真实用户数据需要后端服务支持。</div>
+      <div class="notice">当前后台数据来自服务器 SQLite 数据库，所有管理员操作会实时写入数据库并同步到前台所有设备。</div>
       <div class="cards">
         <div class="stat"><div class="k">帖子总数</div><div class="v">${posts.length}<small>待审 ${pendingPosts}</small></div></div>
         <div class="stat"><div class="k">注册用户</div><div class="v">${users.length}<small>人</small></div></div>
@@ -360,31 +377,25 @@ const Admin = (() => {
           <tbody>${rows}</tbody></table>` : '<div class="empty">暂无帖子</div>'}
       </div></div>`;
   }
-  function setStatus(id, status) {
-    const posts = get('posts');
-    const p = posts.find(x => x.id === id);
-    if (!p) return;
-    p.status = status;
-    set('posts', posts);
-    toast(status === 'approved' ? '已通过' : '已驳回');
-    go('posts');
+  async function setStatus(id, status) {
+    try {
+      await api(`/api/admin/posts/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+      toast(status === 'approved' ? '已通过' : '已驳回');
+      go('posts');
+    } catch (e) { toast(e.message); }
   }
-  function delPost(id) {
-    const posts = get('posts');
-    const p = posts.find(x => x.id === id);
+  async function delPost(id) {
+    const p = (state.data.posts || []).find(x => x.id === id);
     if (!p) return;
     if (!confirm(`确认删除「${p.title}」？`)) return;
-    if (p.type === 'demand' && p.rewardPoint > 0 && !p.isFinish) {
-      changePoints(p.userId, p.rewardPoint, `帖子删除，退回悬赏 - ${String(p.title).slice(0, 20)}`, 'demand_unfreeze');
-      setFrozen(p.userId, -p.rewardPoint);
-    }
-    set('posts', posts.filter(x => x.id !== id));
-    toast('已删除');
-    go('posts');
+    try {
+      await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('posts');
+    } catch (e) { toast(e.message); }
   }
   function finishDemand(id) {
-    const posts = get('posts');
-    const p = posts.find(x => x.id === id);
+    const p = (state.data.posts || []).find(x => x.id === id);
     if (!p || p.isFinish) return;
     const candidates = get('users');
     const listHint = candidates.length
@@ -394,39 +405,27 @@ const Admin = (() => {
       <div class="field"><label>悬赏金额</label><input class="input" value="${p.rewardPoint}" disabled></div>
       <div class="field"><label>采纳者用户 ID</label><input class="input" id="f-receiver" placeholder="输入获得悬赏的用户 ID">
         <div class="hint">可选用户：<br>${listHint}</div>
-      </div>
-      <div class="field"><label>备注</label><input class="input" id="f-remark" value="悬赏结单发放"></div>`;
-    openModal('结单发放悬赏', body, () => {
+      </div>`;
+    openModal('结单发放悬赏', body, async () => {
       const receiver = document.getElementById('f-receiver').value.trim();
-      const remark = document.getElementById('f-remark').value.trim() || '悬赏结单发放';
       if (!receiver) { toast('请填写采纳者 ID'); return false; }
-      const receiverPoints = get('userPoints').some(x => x.userId === receiver) || get('users').some(u => u.id === receiver);
-      if (!receiverPoints) { toast('该用户不存在，请检查 ID'); return false; }
-      if (receiver === p.userId) { toast('不能发放给发帖人自己'); return false; }
-      const held = pointsOf(p.userId).frozen;
-      if (held < p.rewardPoint) { toast(`发帖人冻结积分不足（当前 ${held}），无法结单`); return false; }
-      setFrozen(p.userId, -p.rewardPoint);
-      changePoints(receiver, p.rewardPoint, `获得悬赏：${String(p.title).slice(0, 20)}`, 'demand_reward');
-      p.isFinish = true;
-      set('posts', posts);
+      try {
+        await api(`/api/admin/posts/${id}/finish`, { method: 'POST', body: JSON.stringify({ receiverId: receiver }) });
+      } catch (e) { toast(e.message); return false; }
       toast('已发放悬赏');
       setTimeout(() => go('posts'), 60);
       return true;
     });
   }
-  function refundDemand(id) {
-    const posts = get('posts');
-    const p = posts.find(x => x.id === id);
+  async function refundDemand(id) {
+    const p = (state.data.posts || []).find(x => x.id === id);
     if (!p || p.isFinish) return;
     if (!confirm(`确认退回 ${p.rewardPoint} 积分给发帖人？`)) return;
-    const held = pointsOf(p.userId).frozen;
-    if (held < p.rewardPoint) { toast(`冻结积分不足（当前 ${held}）`); return; }
-    setFrozen(p.userId, -p.rewardPoint);
-    changePoints(p.userId, p.rewardPoint, `悬赏退回 - ${String(p.title).slice(0, 20)}`, 'demand_unfreeze');
-    p.isFinish = true;
-    set('posts', posts);
-    toast('已退回悬赏');
-    go('posts');
+    try {
+      await api(`/api/admin/posts/${id}/refund`, { method: 'POST', body: '{}' });
+      toast('已退回悬赏');
+      go('posts');
+    } catch (e) { toast(e.message); }
   }
 
   /* ===== 人物 ===== */
@@ -465,7 +464,7 @@ const Admin = (() => {
       <div class="field"><label>标签</label><input class="input" id="f-tag" value="${esc(p.tag || '')}" placeholder="如：演员 / 网红（可选：${esc(tags.join('、'))}）"></div>
       <div class="field"><label>头像 URL</label><input class="input" id="f-avatar" value="${esc(p.avatar || '')}"></div>
       <div class="field"><label>简介</label><textarea id="f-bio" rows="3">${esc(p.bio || '')}</textarea></div>
-      <div class="field"><label>百度百科链接</label><input class="input" id="f-baidu" value="${esc(p.baiduUrl || '')}"></div>`, () => {
+      <div class="field"><label>百度百科链接</label><input class="input" id="f-baidu" value="${esc(p.baiduUrl || '')}"></div>`, async () => {
       const v = {
         name: document.getElementById('f-name').value.trim(),
         tag: document.getElementById('f-tag').value.trim(),
@@ -474,22 +473,25 @@ const Admin = (() => {
         baiduUrl: document.getElementById('f-baidu').value.trim(),
       };
       if (!v.name) { toast('姓名不能为空'); return false; }
-      const arr = get('persons');
-      if (id) Object.assign(arr.find(x => x.id === id), v);
-      else arr.unshift({ id: uid(), ...v });
-      set('persons', arr);
+      if (id) v.createdAt = p.createdAt;
+      try {
+        if (id) await api(`/api/admin/persons/${id}`, { method: 'PUT', body: JSON.stringify(v) });
+        else await api('/api/admin/persons', { method: 'POST', body: JSON.stringify(v) });
+      } catch (e) { toast(e.message); return false; }
       toast('已保存');
       setTimeout(() => go('persons'), 60);
       return true;
     });
   }
-  function delPerson(id) {
-    const p = get('persons').find(x => x.id === id);
+  async function delPerson(id) {
+    const p = (state.data.persons || []).find(x => x.id === id);
     if (!p) return;
     if (!confirm(`确认删除人物「${p.name}」？其关联作品不会被删除。`)) return;
-    set('persons', get('persons').filter(x => x.id !== id));
-    toast('已删除');
-    go('persons');
+    try {
+      await api(`/api/admin/persons/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('persons');
+    } catch (e) { toast(e.message); }
   }
 
   /* ===== 作品 ===== */
@@ -535,7 +537,7 @@ const Admin = (() => {
       <div class="field"><label>网盘链接</label><input class="input" id="f-link" value="${esc(w.link || '')}"></div>
       <div class="field"><label>提取码</label><input class="input" id="f-code" value="${esc(w.extractCode || '')}"></div>
       <div class="field"><label>封面 URL</label><input class="input" id="f-cover" value="${esc(w.cover || '')}"></div>
-      <div class="field"><label>说明</label><textarea id="f-content" rows="3">${esc(w.content || '')}</textarea></div>`, () => {
+      <div class="field"><label>说明</label><textarea id="f-content" rows="3">${esc(w.content || '')}</textarea></div>`, async () => {
       const v = {
         personId: document.getElementById('f-person').value,
         title: document.getElementById('f-title').value.trim(),
@@ -546,29 +548,34 @@ const Admin = (() => {
         content: document.getElementById('f-content').value.trim(),
       };
       if (!v.title) { toast('标题不能为空'); return false; }
-      const arr = get('works');
-      if (id) Object.assign(arr.find(x => x.id === id), v);
-      else arr.unshift({ id: uid(), ...v, resourceType: '素材', unlockPoint: 0, userId: 'admin', userName: '管理员', status: 'approved', createdAt: Date.now() });
-      set('works', arr);
+      if (id) {
+        v.status = w.status; v.userId = w.userId; v.userName = w.userName; v.createdAt = w.createdAt;
+      } else {
+        v.status = 'approved'; v.userId = 'admin'; v.userName = '管理员';
+      }
+      try {
+        if (id) await api(`/api/admin/works/${id}`, { method: 'PUT', body: JSON.stringify(v) });
+        else await api('/api/admin/works', { method: 'POST', body: JSON.stringify(v) });
+      } catch (e) { toast(e.message); return false; }
       toast('已保存');
       setTimeout(() => go('works'), 60);
       return true;
     });
   }
-  function setWorkStatus(id, status) {
-    const arr = get('works');
-    const w = arr.find(x => x.id === id);
-    if (!w) return;
-    w.status = status;
-    set('works', arr);
-    toast('已更新');
-    go('works');
+  async function setWorkStatus(id, status) {
+    try {
+      await api(`/api/admin/works/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+      toast('已更新');
+      go('works');
+    } catch (e) { toast(e.message); }
   }
-  function delWork(id) {
+  async function delWork(id) {
     if (!confirm('确认删除该作品？')) return;
-    set('works', get('works').filter(x => x.id !== id));
-    toast('已删除');
-    go('works');
+    try {
+      await api(`/api/admin/works/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('works');
+    } catch (e) { toast(e.message); }
   }
 
   /* ===== 积分 ===== */
@@ -612,10 +619,8 @@ const Admin = (() => {
       </div>`;
   }
   function searchPoints() {
+    lastQuery = document.getElementById('pt-search').value;
     go('points');
-    const q = document.getElementById('pt-search').value;
-    lastQuery = q;
-    shell('points', renderPoints(q));
   }
   function adjustPoints(userId, dir) {
     const p = pointsOf(userId);
@@ -623,12 +628,14 @@ const Admin = (() => {
       <div class="field"><label>用户 ID</label><input class="input" value="${esc(userId)}" disabled></div>
       <div class="field"><label>当前可用积分</label><input class="input" value="${p.available}" disabled></div>
       <div class="field"><label>${dir > 0 ? '发放' : '扣减'}数量 *</label><input class="input" id="f-amount" type="number" min="1" value="100"></div>
-      <div class="field"><label>备注</label><input class="input" id="f-remark" value="${dir > 0 ? '管理员发放' : '管理员扣减'}"></div>`, () => {
+      <div class="field"><label>备注</label><input class="input" id="f-remark" value="${dir > 0 ? '管理员发放' : '管理员扣减'}"></div>`, async () => {
       const amount = Math.abs(parseInt(document.getElementById('f-amount').value) || 0);
       const remark = document.getElementById('f-remark').value.trim();
       if (!amount) { toast('请输入数量'); return false; }
       if (dir < 0 && amount > p.available) { toast('扣减数量不能超过可用积分'); return false; }
-      changePoints(userId, dir * amount, remark, dir > 0 ? 'admin_give' : 'admin_deduct');
+      try {
+        await api(`/api/admin/users/${userId}/points`, { method: 'POST', body: JSON.stringify({ delta: dir * amount, remark }) });
+      } catch (e) { toast(e.message); return false; }
       toast('操作成功');
       setTimeout(() => go('points'), 60);
       return true;
@@ -642,6 +649,7 @@ const Admin = (() => {
       <td style="width:72px">${a.cover ? `<img src="${esc(a.cover)}" alt="" style="width:60px;height:36px;border-radius:8px;object-fit:cover">` : '<span class="tag tag-gray">无封面</span>'}</td>
       <td><span class="t">${esc(a.title)}</span><span class="sub">${esc(a.excerpt || '')}</span></td>
       <td>${a.pinned ? '<span class="tag tag-amber">置顶</span>' : '<span class="tag tag-gray">普通</span>'}</td>
+      <td>${a.drivePoint > 0 ? `<span class="tag tag-violet">🔒 ${a.drivePoint}积分</span>` : (a.driveLink ? '<span class="tag tag-green">网盘免费</span>' : '<span class="tag tag-gray">无网盘</span>')}</td>
       <td>${a.views || 0}</td>
       <td><span class="sub">${fmt(a.createdAt)}</span></td>
       <td><div class="cell-actions">
@@ -649,16 +657,50 @@ const Admin = (() => {
         <button class="btn btn-sm btn-danger" onclick="Admin.delArticle('${a.id}')">删除</button>
       </div></td>
     </tr>`).join('');
+    const comments = (state.data.articleComments || []).slice(0, 10);
+    const commentRows = comments.map(c => `<tr>
+      <td><span class="t" title="${esc(c.articleTitle || '')}">${esc(c.articleTitle || '（文章已删除）')}</span></td>
+      <td>${esc(c.userName || c.userId || '-')}</td>
+      <td><span class="t" title="${esc(c.content)}">${esc(c.content)}</span></td>
+      <td><span class="sub">${fmt(c.createdAt)}</span></td>
+      <td><div class="cell-actions"><button class="btn btn-sm btn-danger" onclick="Admin.delComment('${c.id}')">删除</button></div></td>
+    </tr>`).join('');
     return `
       <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
         <h2>共 ${list.length} 篇文章</h2>
         <div class="actions"><button class="btn btn-sm btn-primary" onclick="Admin.editArticle()">+ 新增文章</button></div>
       </div>
-      <div class="panel"><div class="table-wrap">
+      <div class="panel" style="margin-bottom:18px"><div class="table-wrap">
         ${list.length ? `<table class="table">
-          <thead><tr><th>封面</th><th>标题 / 摘要</th><th>置顶</th><th>浏览</th><th>创建时间</th><th>操作</th></tr></thead>
+          <thead><tr><th>封面</th><th>标题 / 摘要</th><th>置顶</th><th>网盘</th><th>浏览</th><th>创建时间</th><th>操作</th></tr></thead>
           <tbody>${rows}</tbody></table>` : '<div class="empty">暂无推荐文章</div>'}
-      </div></div>`;
+      </div></div>
+      <div class="panel">
+        <div class="panel-head"><h2>文章评论（最近 10 条）</h2></div>
+        <div class="table-wrap">
+          ${comments.length ? `<table class="table">
+            <thead><tr><th>文章</th><th>评论人</th><th>内容</th><th>时间</th><th>操作</th></tr></thead>
+            <tbody>${commentRows}</tbody></table>` : '<div class="empty">暂无评论</div>'}
+        </div>
+      </div>`;
+  }
+  // 正文格式化：选中文字包裹标签
+  function fmt(id, before, after, placeholder) {
+    const ta = document.getElementById(id);
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const sel = ta.value.slice(s, e) || placeholder || '';
+    ta.value = ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+    ta.focus();
+    ta.selectionStart = s + before.length;
+    ta.selectionEnd = s + before.length + sel.length;
+  }
+  function fmtLink(id) {
+    const ta = document.getElementById(id);
+    if (!ta) return;
+    const url = prompt('请输入链接地址（https:// 开头）');
+    if (!url) return;
+    fmt(id, `<a href="${url}" target="_blank" rel="noopener">`, '</a>', '链接文字');
   }
   function editArticle(id) {
     const a = id ? get('articles').find(x => x.id === id) : {};
@@ -666,12 +708,36 @@ const Admin = (() => {
       <div class="field"><label>标题 *</label><input class="input" id="f-title" value="${esc(a.title || '')}"></div>
       <div class="field"><label>封面 URL</label><input class="input" id="f-cover" value="${esc(a.cover || '')}"></div>
       <div class="field"><label>摘要</label><textarea id="f-excerpt" rows="2">${esc(a.excerpt || '')}</textarea></div>
-      <div class="field"><label>正文（支持 HTML）</label><textarea id="f-content" rows="6">${esc(a.content || '')}</textarea></div>
+      <div class="field">
+        <label>正文（支持 HTML，选中文字后点工具按钮加格式）</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmt('f-content','<b>','</b>','加粗文字')"><b>B 加粗</b></button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmt('f-content','<mark>','</mark>','高亮文字')">🖍 高亮</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmtLink('f-content')">🔗 超链接</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmt('f-content','<p>','</p>','段落内容')">¶ 段落</button>
+        </div>
+        <textarea id="f-content" rows="8" style="font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.7">${esc(a.content || '')}</textarea>
+        <div class="hint">纯文本也可直接粘贴：空行自动分段，网址自动变成超链接；**加粗**、==高亮== 两种标记同样有效。</div>
+      </div>
       <div class="field"><label>作者</label><input class="input" id="f-author" value="${esc(a.author || '站长')}"></div>
       <div class="field" style="display:flex;align-items:center;gap:8px">
         <input type="checkbox" id="f-pinned" ${a.pinned ? 'checked' : ''} style="width:auto">
         <label for="f-pinned" style="margin:0">置顶推荐</label>
-      </div>`, () => {
+      </div>
+      <div class="field" style="border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
+        <label style="font-weight:600;color:var(--text)">📎 文末网盘链接（选填）</label>
+        <div class="grid-2" style="margin-top:8px">
+          <div><label style="font-size:12px;color:var(--muted)">网盘类型</label>
+            <input class="input" id="f-drive-type" value="${esc(a.driveType || '')}" placeholder="如：夸克网盘 / 百度网盘"></div>
+          <div><label style="font-size:12px;color:var(--muted)">解锁积分（0 = 免费获取）</label>
+            <input class="input" id="f-drive-point" type="number" min="0" value="${a.drivePoint || 0}"></div>
+        </div>
+        <div style="margin-top:8px"><label style="font-size:12px;color:var(--muted)">网盘链接</label>
+          <input class="input" id="f-drive-link" value="${esc(a.driveLink || '')}" placeholder="https://pan.quark.cn/s/..."></div>
+        <div style="margin-top:8px"><label style="font-size:12px;color:var(--muted)">提取码</label>
+          <input class="input" id="f-drive-code" value="${esc(a.driveCode || '')}"></div>
+        <div class="hint">填写链接后文章末尾会出现网盘卡片；解锁积分大于 0 时读者需消耗积分才能查看链接。</div>
+      </div>`, async () => {
       const v = {
         title: document.getElementById('f-title').value.trim(),
         cover: document.getElementById('f-cover').value.trim(),
@@ -679,22 +745,38 @@ const Admin = (() => {
         content: document.getElementById('f-content').value,
         author: document.getElementById('f-author').value.trim() || '站长',
         pinned: document.getElementById('f-pinned').checked,
+        driveType: document.getElementById('f-drive-type').value.trim(),
+        driveLink: document.getElementById('f-drive-link').value.trim(),
+        driveCode: document.getElementById('f-drive-code').value.trim(),
+        drivePoint: Math.max(0, parseInt(document.getElementById('f-drive-point').value, 10) || 0),
       };
       if (!v.title) { toast('标题不能为空'); return false; }
-      const arr = get('articles');
-      if (id) Object.assign(arr.find(x => x.id === id), v);
-      else arr.unshift({ id: uid(), ...v, views: 0, createdAt: Date.now() });
-      set('articles', arr);
+      if (v.driveLink && !/^https?:\/\//.test(v.driveLink)) { toast('网盘链接需以 http(s):// 开头'); return false; }
+      if (id) { v.views = a.views || 0; v.createdAt = a.createdAt; }
+      try {
+        if (id) await api(`/api/admin/articles/${id}`, { method: 'PUT', body: JSON.stringify(v) });
+        else await api('/api/admin/articles', { method: 'POST', body: JSON.stringify(v) });
+      } catch (e) { toast(e.message); return false; }
       toast('已保存');
       setTimeout(() => go('articles'), 60);
       return true;
     });
   }
-  function delArticle(id) {
+  async function delComment(id) {
+    if (!confirm('确认删除这条评论？')) return;
+    try {
+      await api(`/api/admin/comments/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('articles');
+    } catch (e) { toast(e.message); }
+  }
+  async function delArticle(id) {
     if (!confirm('确认删除这篇文章？')) return;
-    set('articles', get('articles').filter(x => x.id !== id));
-    toast('已删除');
-    go('articles');
+    try {
+      await api(`/api/admin/articles/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('articles');
+    } catch (e) { toast(e.message); }
   }
 
   /* ===== Banner ===== */
@@ -726,7 +808,7 @@ const Admin = (() => {
       <div class="field"><label>标题 *</label><input class="input" id="f-title" value="${esc(b.title || '')}"></div>
       <div class="field"><label>描述</label><input class="input" id="f-desc" value="${esc(b.desc || '')}"></div>
       <div class="field"><label>角标文字</label><input class="input" id="f-tag" value="${esc(b.tag || '')}"></div>
-      <div class="field"><label>图片 URL *</label><input class="input" id="f-image" value="${esc(b.image || '')}"></div>`, () => {
+      <div class="field"><label>图片 URL *</label><input class="input" id="f-image" value="${esc(b.image || '')}"></div>`, async () => {
       const v = {
         title: document.getElementById('f-title').value.trim(),
         desc: document.getElementById('f-desc').value.trim(),
@@ -734,20 +816,22 @@ const Admin = (() => {
         image: document.getElementById('f-image').value.trim(),
       };
       if (!v.title || !v.image) { toast('标题和图片不能为空'); return false; }
-      const arr = get('banner');
-      if (id) Object.assign(arr.find(x => x.id === id), v);
-      else arr.unshift({ id: uid(), ...v });
-      set('banner', arr);
+      try {
+        if (id) await api(`/api/admin/banner/${id}`, { method: 'PUT', body: JSON.stringify(v) });
+        else await api('/api/admin/banner', { method: 'POST', body: JSON.stringify(v) });
+      } catch (e) { toast(e.message); return false; }
       toast('已保存');
       setTimeout(() => go('banner'), 60);
       return true;
     });
   }
-  function delBanner(id) {
+  async function delBanner(id) {
     if (!confirm('确认删除这张 Banner？')) return;
-    set('banner', get('banner').filter(x => x.id !== id));
-    toast('已删除');
-    go('banner');
+    try {
+      await api(`/api/admin/banner/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('banner');
+    } catch (e) { toast(e.message); }
   }
 
   /* ===== 分类 ===== */
@@ -766,85 +850,50 @@ const Admin = (() => {
         </div>
       </div>`;
   }
-  function saveCategories() {
+  async function saveCategories() {
     const split = v => v.split(/[,，]/).map(s => s.trim()).filter(Boolean);
     const categories = {
       resourceTypes: split(document.getElementById('c-res').value),
       netdiskTypes: split(document.getElementById('c-disk').value),
       personTags: split(document.getElementById('c-tags').value),
     };
-    set('categories', categories);
+    try {
+      await api('/api/admin/categories', { method: 'PUT', body: JSON.stringify(categories) });
+    } catch (e) { toast(e.message); return; }
     toast('分类已更新');
     go('categories');
   }
 
   /* ===== 备份 ===== */
   function renderBackup() {
-    const sizes = KEYS.map(k => {
-      const raw = localStorage.getItem(k);
-      return { key: k, count: Array.isArray(get(k)) ? get(k).length : 1, bytes: raw ? raw.length : 0 };
-    });
+    const d = state.data;
+    const rows = [
+      ['users', d.users], ['posts', d.posts], ['persons', d.persons], ['works', d.works],
+      ['articles', d.articles], ['banner', d.banner], ['pointLogs', d.logs],
+    ];
     return `
-      <div class="notice">导出的 JSON 包含本浏览器全部业务数据，可用于迁移或留档。导入会<b>覆盖</b>同名数据，请先导出备份。</div>
+      <div class="notice">数据存储于服务器 SQLite 数据库（<b>/opt/vision-she/data/vision.db</b>）。此处可导出当前数据快照为 JSON 留档；请在服务器上直接复制该数据库文件进行完整备份。</div>
       <div class="panel" style="margin-bottom:18px">
-        <div class="panel-head"><h2>数据导出 / 导入</h2><div class="actions">
+        <div class="panel-head"><h2>数据快照</h2><div class="actions">
           <button class="btn btn-sm btn-primary" onclick="Admin.exportData()">导出 JSON</button>
-          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('imp-file').click()">导入 JSON</button>
-          <input type="file" id="imp-file" accept="application/json" style="display:none" onchange="Admin.importData(this)">
+          <button class="btn btn-sm btn-ghost" onclick="Admin.go('backup')">刷新数据</button>
         </div></div>
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>数据表</th><th>记录数</th><th>占用字节</th></tr></thead>
-          <tbody>${sizes.map(s => `<tr>
-            <td>${s.key}</td><td>${s.count}</td><td>${s.bytes}</td>
+          <thead><tr><th>数据表</th><th>记录数</th><th>说明</th></tr></thead>
+          <tbody>${rows.map(([k, v]) => `<tr>
+            <td>${k}</td><td>${Array.isArray(v) ? v.length : 0}</td><td>${k === 'pointLogs' ? '最近100条流水' : '全部记录'}</td>
           </tr>`).join('')}</tbody>
         </table></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>危险操作</h2></div>
-        <div class="panel-body" style="padding:18px;display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-danger" onclick="Admin.resetAll()">清空全部数据</button>
-          <button class="btn btn-ghost" onclick="Admin.seedDemo()">恢复示例数据</button>
-        </div>
       </div>`;
   }
   function exportData() {
-    const data = {};
-    KEYS.forEach(k => { const raw = localStorage.getItem(k); if (raw !== null) { try { data[k] = JSON.parse(raw); } catch { data[k] = raw; } } });
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `vision-she-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
     toast('已导出');
-  }
-  function importData(input) {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const obj = JSON.parse(reader.result);
-        if (!confirm('导入将覆盖当前同名数据，确认继续？')) return;
-        KEYS.forEach(k => { if (obj[k] !== undefined) set(k, obj[k]); });
-        toast('导入完成');
-        go('backup');
-      } catch { toast('文件格式错误'); }
-    };
-    reader.readAsText(file);
-    input.value = '';
-  }
-  function resetAll() {
-    if (!confirm('将清空帖子/人物/作品/用户/积分/文章/Banner 等全部数据，且不可恢复。确认？')) return;
-    KEYS.forEach(k => localStorage.removeItem(k));
-    toast('已清空');
-    go('overview');
-  }
-  function seedDemo() {
-    if (!confirm('恢复示例数据会覆盖当前数据，确认？')) return;
-    KEYS.forEach(k => localStorage.removeItem(k));
-    toast('已重置，刷新前台即可生成示例数据');
-    setTimeout(() => { location.href = '../index.html'; }, 800);
   }
 
   /* ===== 弹窗 ===== */
@@ -865,16 +914,33 @@ const Admin = (() => {
     document.body.appendChild(mask);
     mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
     document.getElementById('md-cancel').onclick = closeModal;
-    document.getElementById('md-ok').onclick = () => { const r = onOk(); if (r !== false) closeModal(); };
+    document.getElementById('md-ok').onclick = async () => {
+      const r = onOk();
+      if (r && typeof r.then === 'function') {
+        if ((await r) !== false) closeModal();
+      } else if (r !== false) {
+        closeModal();
+      }
+    };
   }
   function closeModal() {
     const m = document.getElementById('mask');
     if (m) m.remove();
   }
 
-  function boot() {
-    if (isAdmin()) go('overview');
-    else renderLogin();
+  async function boot() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      try {
+        const me = await api('/api/auth/me');
+        if (me.user && me.user.role === 'admin') {
+          adminUser = me.user;
+          await go('overview');
+          return;
+        }
+      } catch { localStorage.removeItem(TOKEN_KEY); }
+    }
+    renderLogin();
   }
 
   return {
@@ -884,10 +950,10 @@ const Admin = (() => {
     editPerson, delPerson,
     editWork, setWorkStatus, delWork,
     searchPoints, adjustPoints,
-    editArticle, delArticle,
+    editArticle, delArticle, fmt, fmtLink, delComment,
     editBanner, delBanner,
     saveCategories,
-    exportData, importData, resetAll, seedDemo,
+    exportData,
   };
 })();
 window.Admin = Admin;

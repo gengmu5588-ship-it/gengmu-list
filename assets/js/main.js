@@ -9,7 +9,7 @@ const App = (() => {
   const CACHE = {
     articles: [], posts: [], persons: [], works: [], banner: [],
     categories: { resourceTypes: [], netdiskTypes: [], personTags: [] },
-    me: null, articleDetail: null, postDetail: null
+    me: null, articleDetail: null, postDetail: null, articleComments: null
   };
 
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
@@ -498,11 +498,100 @@ const App = (() => {
     currentRoute = 'article';
     sessionStorage.setItem('currentId', id);
     CACHE.articleDetail = null;
+    CACHE.articleComments = { id, list: [], count: 0, loaded: false };
     render();
     api(`/api/articles/${encodeURIComponent(id)}`).then(a => {
       CACHE.articleDetail = a;
       if (currentRoute === 'article' && sessionStorage.getItem('currentId') === id) render();
     }).catch(() => {});
+    api(`/api/articles/${encodeURIComponent(id)}/comments`).then(r => {
+      if (currentRoute !== 'article' || sessionStorage.getItem('currentId') !== id) return;
+      CACHE.articleComments = { id, list: r.comments || [], count: r.count || 0, loaded: true };
+      render();
+    }).catch(() => {});
+  }
+
+  // 文末网盘卡片
+  function renderDriveCard(a) {
+    if (!a.driveLink && !(a.drivePoint > 0)) return '';
+    const head = `
+      <div class="drive-card-head">
+        <span class="drive-card-icon"><i class="fas fa-cloud-download-alt"></i></span>
+        <div>
+          <div class="drive-card-title">网盘资源下载</div>
+          <div class="drive-card-sub">${escapeHtml(a.driveType || '网盘')} · ${a.drivePoint > 0 ? `需要 ${a.drivePoint} 积分解锁` : '免费获取'}</div>
+        </div>
+        ${a.drivePoint > 0 && !a.driveLink ? '<span class="drive-lock-badge"><i class="fas fa-lock"></i> 未解锁</span>' : ''}
+      </div>`;
+    if (a.driveLink) {
+      return `
+        <div class="drive-card drive-card-ok">
+          ${head}
+          <div class="drive-card-row">
+            <span class="drive-card-label">链接</span>
+            <a class="drive-card-link" href="${escapeHtml(a.driveLink)}" target="_blank" rel="noopener nofollow">${escapeHtml(a.driveLink)}</a>
+            <button class="btn btn-secondary btn-sm" onclick="App.copyText('${escapeHtml(a.driveLink)}')">复制</button>
+          </div>
+          ${a.driveCode ? `
+            <div class="drive-card-row">
+              <span class="drive-card-label">提取码</span>
+              <span class="drive-card-code">${escapeHtml(a.driveCode)}</span>
+              <button class="btn btn-secondary btn-sm" onclick="App.copyText('${escapeHtml(a.driveCode)}')">复制</button>
+            </div>` : ''}
+        </div>`;
+    }
+    const points = getUserPoints();
+    return `
+      <div class="drive-card drive-card-locked">
+        ${head}
+        <div class="drive-card-row">
+          <span class="drive-card-label">链接</span>
+          <span class="drive-card-mask">••••••••••••••••••••••••</span>
+        </div>
+        <div class="drive-card-unlock">
+          <button class="btn btn-primary" onclick="App.unlockArticle('${a.id}')">
+            <i class="fas fa-lock-open"></i> 消耗 ${a.drivePoint} 积分解锁链接
+          </button>
+          <span class="drive-card-hint">当前可用积分：${points.available}</span>
+        </div>
+      </div>`;
+  }
+
+  // 评论区
+  function renderComments(id) {
+    const cs = (CACHE.articleComments && CACHE.articleComments.id === id)
+      ? CACHE.articleComments
+      : { list: [], count: (CACHE.articleDetail && CACHE.articleDetail.commentCount) || 0, loaded: false };
+    const user = getCurrentUser();
+    const items = cs.list.map((c, i) => `
+      <div class="comment-item">
+        <div class="comment-avatar">${escapeHtml((c.userName || '友').slice(0, 1).toUpperCase())}</div>
+        <div class="comment-main">
+          <div class="comment-head">
+            <span class="comment-name">${escapeHtml(c.userName || '匿名网友')}</span>
+            ${i === 0 ? '<span class="comment-first">🏆 首评 +10积分</span>' : ''}
+            <span class="comment-time">${timeAgo(c.createdAt)}</span>
+          </div>
+          <div class="comment-text">${linkifyRaw(c.content)}</div>
+        </div>
+      </div>`).join('');
+    return `
+      <div class="comments-section">
+        <div class="comments-head">
+          <h2 class="section-title">网友评论</h2>
+          <span class="comments-count">${cs.count} 条</span>
+        </div>
+        ${cs.loaded && cs.count === 0 ? `
+          <div class="comments-empty">还没有评论，抢到首评可获得 <b>+10 积分</b> 奖励！</div>` : ''}
+        ${items ? `<div class="comment-list">${items}</div>` : ''}
+        <div class="comment-input-row">
+          <div class="comment-avatar comment-avatar-me">${user ? escapeHtml((user.nickname || '友').slice(0, 1).toUpperCase()) : '<i class="fas fa-user"></i>'}</div>
+          <textarea id="commentInput" class="comment-input" rows="2" maxlength="500"
+            placeholder="${user ? '友善评论，抢首评拿积分…' : '登录后即可参与评论'}"></textarea>
+          <button class="btn btn-primary btn-sm comment-submit" onclick="App.postComment('${id}')">发表</button>
+        </div>
+        ${user ? '' : `<div class="comments-login-hint">需要先 <a onclick="App.showLoginModal()">登录</a> 才能评论 · 每篇文章第一条评论奖励 10 积分</div>`}
+      </div>`;
   }
 
   function renderArticle() {
@@ -522,18 +611,21 @@ const App = (() => {
 
       <article style="background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;">
         <div style="aspect-ratio:16/7;overflow:hidden;">
-          <img src="${a.cover}" alt="${a.title}" style="width:100%;height:100%;object-fit:cover;">
+          <img src="${a.cover}" alt="${escapeHtml(a.title)}" style="width:100%;height:100%;object-fit:cover;">
         </div>
         <div style="padding:2rem;">
-          <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-text);margin-bottom:0.75rem;">${a.title}</h1>
+          <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-text);margin-bottom:0.75rem;">${escapeHtml(a.title)}</h1>
           <div style="font-size:0.8125rem;color:var(--color-text-muted);margin-bottom:1.5rem;display:flex;gap:1rem;">
-            <span>📝 ${a.author}</span>
+            <span>📝 ${escapeHtml(a.author || '站长')}</span>
             <span>👁 ${a.views || 0}</span>
             <span>${timeAgo(a.createdAt)}</span>
           </div>
-          <div style="line-height:1.8;color:var(--color-text-secondary);" class="article-content">${a.content}</div>
+          <div class="article-content">${formatArticleContent(a.content)}</div>
+          ${renderDriveCard(a)}
         </div>
       </article>
+
+      ${renderComments(id)}
 
       ${relatedPosts.length > 0 ? `
         <div style="margin-top:2rem;">
@@ -545,6 +637,57 @@ const App = (() => {
       ` : ''}
       </div>
     `;
+  }
+
+  // 发表评论（每篇文章第一条评论奖励 10 积分）
+  async function postComment(articleId) {
+    const user = getCurrentUser();
+    if (!user) { showLoginModal(); return; }
+    const el = document.getElementById('commentInput');
+    const content = (el ? el.value : '').trim();
+    if (!content) { toast('先写点什么再发表吧', 'warning'); return; }
+    try {
+      const r = await api(`/api/articles/${encodeURIComponent(articleId)}/comments`, {
+        method: 'POST', body: JSON.stringify({ content })
+      });
+      toast(r.rewarded ? `评论成功！首评奖励 +${r.reward} 积分 🎉` : '评论发表成功', 'success');
+      const c = await api(`/api/articles/${encodeURIComponent(articleId)}/comments`);
+      CACHE.articleComments = { id: articleId, list: c.comments || [], count: c.count || 0, loaded: true };
+      await loadMe();
+      renderNav();
+      render();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  // 解锁文章网盘链接
+  async function unlockArticle(articleId) {
+    const user = getCurrentUser();
+    if (!user) { showLoginModal(); return; }
+    const a = CACHE.articleDetail;
+    const cost = (a && a.id === articleId) ? (a.drivePoint || 0) : 0;
+    const points = getUserPoints();
+    if (cost > 0 && points.available < cost) {
+      toast(`积分不足（当前 ${points.available}，需要 ${cost}），先去签到吧！`, 'warning');
+      return;
+    }
+    try {
+      const r = await api(`/api/articles/${encodeURIComponent(articleId)}/unlock`, { method: 'POST', body: '{}' });
+      if (CACHE.articleDetail && CACHE.articleDetail.id === articleId) {
+        CACHE.articleDetail.driveLink = r.link;
+        CACHE.articleDetail.driveCode = r.extractCode;
+        CACHE.articleDetail.driveLocked = false;
+      }
+      const item = CACHE.articles.find(x => x.id === articleId);
+      if (item) { item.driveLink = r.link; item.driveCode = r.extractCode; item.driveLocked = false; }
+      if (CACHE.me) CACHE.me.points = r.points;
+      toast('解锁成功，网盘链接已获取！', 'success');
+      renderNav();
+      render();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
   }
 
   // ===== 社区论坛 =====
@@ -1360,10 +1503,53 @@ const App = (() => {
   function getPointTypeName(type) {
     const map = {
       register: '新用户注册', sign: '每日签到', admin_give: '管理员发放',
-      unlock_post: '解锁资源', demand_freeze: '悬赏冻结', demand_reward: '悬赏兑现',
+      unlock_post: '解锁资源', unlock_article: '解锁文章网盘', first_comment: '文章首评奖励',
+      demand_freeze: '悬赏冻结', demand_reward: '悬赏兑现',
       demand_unfreeze: '悬赏退回', admin_reset: '管理员调整'
     };
     return map[type] || type;
+  }
+
+  // ===== 文章内容格式化 =====
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  // 把文本中的 URL 变成可点击超链接（raw 未转义文本，输出已转义）
+  function linkifyRaw(raw) {
+    return String(raw).split(/(https?:\/\/[^\s<>"'\)\]]+)/g).map((p, i) =>
+      i % 2
+        ? `<a href="${escapeHtml(p)}" target="_blank" rel="noopener nofollow">${escapeHtml(p)}</a>`
+        : escapeHtml(p)
+    ).join('');
+  }
+  // 对已转义文本做链接化（避免吞掉行尾残留实体）
+  function linkifyEscaped(escaped) {
+    return escaped.split(/(https?:\/\/[^\s<>&'\)\]]+(?:&amp;[^\s<>&'\)\]]+)*)/g).map((p, i) =>
+      i % 2
+        ? `<a href="${p}" target="_blank" rel="noopener nofollow">${p}</a>`
+        : p
+    ).join('');
+  }
+  // 正文渲染：兼容后台 HTML 内容与纯文本投稿（自动段落 + 超链接 + **加粗** + ==高亮==）
+  function formatArticleContent(raw) {
+    const s = String(raw || '');
+    const applyInline = seg => seg
+      .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+      .replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+    if (/<[a-z][\s\S]*>/i.test(s)) {
+      // 已是 HTML（后台编辑器产出）：只处理标签外的文本片段，不重复转义
+      return s.split(/(<[^>]+>)/g).map(seg =>
+        seg.startsWith('<') ? seg
+          : applyInline(seg).replace(/(https?:\/\/[^\s<>"'\)\]]+)/g,
+            u => `<a href="${u}" target="_blank" rel="noopener nofollow">${u}</a>`)
+      ).join('');
+    }
+    // 纯文本：先转义 → 链接化 → 再插入加粗/高亮标签 → 空行分段、单换行转 <br>
+    const escaped = linkifyEscaped(escapeHtml(s));
+    return applyInline(escaped)
+      .split(/\n{2,}/)
+      .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+      .join('');
   }
 
   function copyText(text) {
@@ -1461,6 +1647,7 @@ const App = (() => {
     showLoginModal, doLogin, doRegister, logout, showEditProfile,
     showSubmitModal, switchSubmitTab, showWorkSubmitModal,
     openArticle, openPost, openPerson, unlockPost, doSignin,
+    postComment, unlockArticle, copyText,
     showRule, showDisclaimer, showPrivacy, showReport, toggleUserMenu
   };
 
