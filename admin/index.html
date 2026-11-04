@@ -685,7 +685,7 @@ const Admin = (() => {
       </div>`;
   }
   // 正文格式化：选中文字包裹标签
-  function fmt(id, before, after, placeholder) {
+  function wrapSel(id, before, after, placeholder) {
     const ta = document.getElementById(id);
     if (!ta) return;
     const s = ta.selectionStart, e = ta.selectionEnd;
@@ -700,7 +700,7 @@ const Admin = (() => {
     if (!ta) return;
     const url = prompt('请输入链接地址（https:// 开头）');
     if (!url) return;
-    fmt(id, `<a href="${url}" target="_blank" rel="noopener">`, '</a>', '链接文字');
+    wrapSel(id, `<a href="${url}" target="_blank" rel="noopener">`, '</a>', '链接文字');
   }
   function editArticle(id) {
     const a = id ? get('articles').find(x => x.id === id) : {};
@@ -711,10 +711,10 @@ const Admin = (() => {
       <div class="field">
         <label>正文（支持 HTML，选中文字后点工具按钮加格式）</label>
         <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
-          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmt('f-content','<b>','</b>','加粗文字')"><b>B 加粗</b></button>
-          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmt('f-content','<mark>','</mark>','高亮文字')">🖍 高亮</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.wrapSel('f-content','<b>','</b>','加粗文字')"><b>B 加粗</b></button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.wrapSel('f-content','<mark>','</mark>','高亮文字')">🖍 高亮</button>
           <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmtLink('f-content')">🔗 超链接</button>
-          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.fmt('f-content','<p>','</p>','段落内容')">¶ 段落</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="Admin.wrapSel('f-content','<p>','</p>','段落内容')">¶ 段落</button>
         </div>
         <textarea id="f-content" rows="8" style="font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.7">${esc(a.content || '')}</textarea>
         <div class="hint">纯文本也可直接粘贴：空行自动分段，网址自动变成超链接；**加粗**、==高亮== 两种标记同样有效。</div>
@@ -950,7 +950,7 @@ const Admin = (() => {
     editPerson, delPerson,
     editWork, setWorkStatus, delWork,
     searchPoints, adjustPoints,
-    editArticle, delArticle, fmt, fmtLink, delComment,
+    editArticle, delArticle, wrapSel, fmtLink, delComment,
     editBanner, delBanner,
     saveCategories,
     exportData,
