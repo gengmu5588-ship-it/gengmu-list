@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>视觉社 · 等级图标全集（V1–V100）</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --card2:#1e222b; --border:#2a2f3a;
+    --text:#f2f4f8; --muted:#9aa3b2; --primary:#7C3AED;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 64px;}
+  h1{font-size:1.6rem;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:.9rem;margin:0 0 24px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:22px;}
+  .card h2{font-size:1.05rem;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+  .formula{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;color:#cdd5e3;overflow-x:auto;}
+  .tier-legend{display:flex;flex-wrap:wrap;gap:10px;}
+  .tier-chip{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:.85rem;}
+  .tier-chip .sw{width:26px;height:26px;border-radius:7px;flex:0 0 auto;}
+  .tier-chip b{font-weight:700;}
+  .tier-chip small{color:var(--muted);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px;}
+  .cell{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .cell .lv-label{font-size:.78rem;font-weight:700;}
+  .cell .lv-pts{font-size:.66rem;color:var(--muted);text-align:center;}
+  .tier-title{display:flex;align-items:center;gap:10px;margin:6px 0 14px;font-weight:700;font-size:.95rem;}
+  .tier-title .bar{height:3px;flex:1;border-radius:3px;}
+  .demo{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .demo input{background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:.95rem;width:180px;}
+  .demo .result{display:flex;align-items:center;gap:8px;font-size:1.05rem;font-weight:700;}
+  .nick{color:var(--muted);font-weight:400;font-size:.85rem;}
+  .note{color:var(--muted);font-size:.8rem;margin-top:8px;}
+  code{background:var(--card2);padding:1px 6px;border-radius:5px;font-size:.85em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>视觉社 · 等级图标全集</h1>
+  <p class="sub">根据网友「累计积分」划定的 V1–V100 段位体系，图标跟随昵称展示。共 10 个段位，每 10 级一段。</p>
+
+  <div class="card">
+    <h2>📐 等级算法</h2>
+    <div class="formula">level = min(100, floor( sqrt( points / 200 ) ) + 1 )　　其中 points = 累计获得积分(totalGain)
+上限曲线：V(L) 积分上限 = 200 × L²　→　V1&lt;200，V2&lt;800，V3&lt;1800 … V13&lt;33800 … V100≥1,960,200</div>
+    <p class="note">例：累计 5000 分 → floor(√25)+1 = 6 → <b>V6（黄金）</b>；累计 33800 分 → V14；累计 ≥ 1,960,200 分封顶 <b>V100（传奇）</b>。</p>
+  </div>
+
+  <div class="card">
+    <h2>🎨 段位配色</h2>
+    <div class="tier-legend" id="legend"></div>
+  </div>
+
+  <div class="card">
+    <h2>🔎 积分试算</h2>
+    <div class="demo">
+      <input id="ptsInput" type="number" min="0" value="5000" placeholder="输入累计积分">
+      <div class="result" id="demoResult"></div>
+    </div>
+    <p class="note">在昵称旁的效果示意：<span class="nick">视觉社网友</span><span id="demoInline"></span></p>
+  </div>
+
+  <div class="card">
+    <h2>🛡️ 全套图标（V1 – V100）</h2>
+    <div id="allBadges"></div>
+  </div>
+
+  <p class="note">提示：本页为静态预览，站内真实图标由 <code>assets/js/main.js</code> 的 <code>renderLevelBadge()</code> 实时生成，逻辑与本页一致。</p>
+</div>
+
+<script>
+/* ===== 与 main.js 保持一致的等级逻辑 ===== */
+const LEVEL_TIERS = [
+  { name:'青铜', c1:'#d39a5e', c2:'#8a5a2b' },
+  { name:'白银', c1:'#e6edf1', c2:'#9aa9b1' },
+  { name:'黄金', c1:'#ffd86b', c2:'#d99b1c' },
+  { name:'铂金', c1:'#8fe9dc', c2:'#2fa6a0' },
+  { name:'钻石', c1:'#88bdff', c2:'#3a6fd8' },
+  { name:'星耀', c1:'#c79bff', c2:'#7a3fe0' },
+  { name:'大师', c1:'#ff9bb0', c2:'#e74d6b' },
+  { name:'宗师', c1:'#ffc07a', c2:'#ff7a18' },
+  { name:'王者', c1:'#ffcf6b', c2:'#ff4d4d' },
+  { name:'传奇', c1:'#a8f5cf', c2:'#c9a227' },
+];
+function getLevel(points){const p=Math.max(0,Number(points)||0);const L=Math.floor(Math.sqrt(p/200))+1;return Math.min(100,Math.max(1,L));}
+function getLevelMeta(level){
+  level=Math.min(100,Math.max(1,level));
+  const tierIdx=Math.floor((level-1)/10);
+  const tier=LEVEL_TIERS[tierIdx];
+  const inner=((level-1)%10)+1;
+  return {level,tierIdx:tierIdx+1,tierName:tier.name,c1:tier.c1,c2:tier.c2,inner};
+}
+function levelLabel(l){return 'V'+Math.min(100,Math.max(1,l));}
+let _uid=0;
+function renderLevelBadge(level, opts){
+  opts=opts||{}; const h=opts.size||40; const w=Math.round(h*2.3); const m=getLevelMeta(level);
+  const gid='pg'+(_uid++);
+  const label='Lv '+m.level;
+  const fs=label.length>4?8:10;
+  const baseY=(9+0.36*fs).toFixed(1);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 46 18" role="img" aria-label="Lv ${m.level} ${m.tierName}" title="Lv ${m.level} · ${m.tierName}">`
+    +`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${m.c1}"/><stop offset="1" stop-color="${m.c2}"/></linearGradient></defs>`
+    +`<rect x="1" y="1" width="44" height="16" rx="4.5" ry="4.5" fill="url(#${gid})"/>`
+    +`<text x="23" y="${baseY}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fs}" font-weight="800" fill="#fff" letter-spacing="0.2" style="paint-order:stroke;stroke:rgba(0,0,0,.22);stroke-width:.5px;">${label}</text></svg>`;
+}
+
+/* ===== 渲染段位图例 ===== */
+const legend=document.getElementById('legend');
+LEVEL_TIERS.forEach((t,i)=>{
+  const lo=200*i*i, hi=200*Math.pow(i+1,2)-1;
+  const div=document.createElement('div'); div.className='tier-chip';
+  div.innerHTML=`<span class="sw" style="background:linear-gradient(160deg,${t.c1},${t.c2})"></span>`
+    +`<span><b>${t.name}</b> <small>V${i*10+1}–V${i*10+10} · ${lo}–${hi}分</small></span>`;
+  legend.appendChild(div);
+});
+
+/* ===== 渲染全部 100 个图标 ===== */
+const all=document.getElementById('allBadges');
+for(let t=0;t<10;t++){
+  const tier=LEVEL_TIERS[t];
+  const title=document.createElement('div'); title.className='tier-title';
+  title.innerHTML=`<span>${tier.name}</span><span class="bar" style="background:linear-gradient(90deg,${tier.c1},${tier.c2})"></span><span class="nick">V${t*10+1}–V${t*10+10}</span>`;
+  all.appendChild(title);
+  const grid=document.createElement('div'); grid.className='grid';
+  for(let k=1;k<=10;k++){
+    const level=t*10+k; const m=getLevelMeta(level);
+    const lo=200*(level-1)*(level-1);
+    const cell=document.createElement('div'); cell.className='cell';
+    cell.innerHTML=`${renderLevelBadge(level,{size:46})}<span class="lv-label">Lv ${level}</span><span class="lv-pts">${lo.toLocaleString()}分起</span>`;
+    grid.appendChild(cell);
+  }
+  all.appendChild(grid);
+}
+
+/* ===== 试算交互 ===== */
+const ptsInput=document.getElementById('ptsInput');
+const demoResult=document.getElementById('demoResult');
+const demoInline=document.getElementById('demoInline');
+function updateDemo(){
+  const p=Number(ptsInput.value)||0; const lv=getLevel(p); const m=getLevelMeta(lv);
+  demoResult.innerHTML=`${renderLevelBadge(lv,{size:36})}<span>${levelLabel(lv)} · ${m.tierName}</span>`;
+  demoInline.innerHTML=renderLevelBadge(lv,{size:18});
+}
+ptsInput.addEventListener('input',updateDemo);
+updateDemo();
+</script>
+</body>
+</html>

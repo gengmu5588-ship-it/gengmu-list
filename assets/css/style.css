@@ -2393,3 +2393,20 @@ input, textarea, select {
 
   .section-title { font-size: 1.125rem; }
 }
+
+/* ===== 等级图标（跟随昵称展示） ===== */
+.lv-badge-svg {
+  display: inline-block;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.45));
+}
+
+/* 昵称与等级徽章的同行容器：严格垂直居中 + 等间距 */
+.lv-pair {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+}
+/* 在 flex 容器内保留昵称省略号 */
+.lv-pair > .user-name { min-width: 0; }

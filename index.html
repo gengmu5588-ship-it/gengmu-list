@@ -18,7 +18,7 @@
       } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
     })();
   </script>
-  <link rel="stylesheet" href="assets/css/style.css?v=20261105">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261106">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -60,7 +60,9 @@
 
       <div class="nav-search">
         <i class="fas fa-search"></i>
-        <input type="text" placeholder="搜索资源、帖子..." oninput="App.handleSearch(this.value)">
+        <input type="text" id="navSearchInput" placeholder="搜索资源、帖子..." autocomplete="off"
+          oninput="App.handleSearch(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();App.searchNow(this.value);}if(event.key==='Escape'){this.value='';App.searchNow('');}">
       </div>
 
       <div class="points-badge" onclick="App.navigate('profile')">
@@ -124,6 +126,6 @@
 <!-- 模态框容器 -->
 <div id="modalContainer"></div>
 
-<script src="assets/js/main.js?v=20261105"></script>
+<script src="assets/js/main.js?v=20261106"></script>
 </body>
 </html>

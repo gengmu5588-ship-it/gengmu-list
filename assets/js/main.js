@@ -6,11 +6,17 @@
 const App = (() => {
   // ===== 数据层 =====
   const TOKEN_KEY = 'vision_token';
+  // 默认缩略图（后台可覆盖配置），论坛列表无自定义缩略图时使用
+  const DEFAULT_THUMB = 'https://img.cdn1.vip/i/6aec4bef86be6_1793870831.webp';
   const CACHE = {
     articles: [], posts: [], persons: [], works: [], banner: [],
     categories: { resourceTypes: [], netdiskTypes: [], personTags: [] },
-    me: null, articleDetail: null, postDetail: null, articleComments: null
+    settings: { defaultThumb: DEFAULT_THUMB },
+    me: null, articleDetail: null, postDetail: null, articleComments: null,
+    postComments: null, lbPreview: null, checkin: null, levelPoints: {}
   };
+  const defaultThumb = () => (CACHE.settings && CACHE.settings.defaultThumb) || DEFAULT_THUMB;
+  const postThumb = p => (p && p.thumb) || defaultThumb();
 
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
   function setToken(t) { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); }
@@ -38,6 +44,7 @@ const App = (() => {
     CACHE.works = data.works || [];
     CACHE.banner = data.banner || [];
     CACHE.categories = data.categories || CACHE.categories;
+    CACHE.settings = data.settings || { defaultThumb: DEFAULT_THUMB };
     CACHE.me = data.me || null;
   }
 
@@ -47,8 +54,12 @@ const App = (() => {
       const data = await api('/api/auth/me');
       CACHE.me = {
         user: data.user,
+        email: data.email || null,
+        mustChangePwd: !!data.mustChangePwd,
         points: data.points,
         signedToday: !!data.signedToday,
+        signDays: data.signDays || 0,
+        signStreak: data.signStreak || 0,
         myUnlocked: data.myUnlocked || [],
         myPosts: data.myPosts || [],
         logs: data.logs || [],
@@ -58,6 +69,14 @@ const App = (() => {
   }
 
   async function refresh() { await loadBootstrap(); await loadMe(); }
+
+  // 拉取全部用户的累计积分（用于展示等级图标），缓存到 CACHE.levelPoints
+  async function loadUserLevels() {
+    try {
+      const map = await api('/api/users/levels');
+      if (map && typeof map === 'object') CACHE.levelPoints = map;
+    } catch (e) { /* 等级图标降级为 V1，不影响主流程 */ }
+  }
 
   // 仅保留读取接口，所有写入统一走后端 API
   function getDB(k) { return CACHE[k] || []; }
@@ -157,6 +176,86 @@ const App = (() => {
     return CACHE.me ? CACHE.me.points : { available: 0, frozen: 0, totalGain: 0 };
   }
 
+  // ===== 等级系统（V1–V100，按累计积分 totalGain 计算）=====
+  // 经验曲线：V(L) 上限 = 200 × L² 积分，即 L = floor(sqrt(P/200)) + 1，封顶 100
+  const LEVEL_TIERS = [
+    { name: '青铜', c1: '#d39a5e', c2: '#8a5a2b' },
+    { name: '白银', c1: '#e6edf1', c2: '#9aa9b1' },
+    { name: '黄金', c1: '#ffd86b', c2: '#d99b1c' },
+    { name: '铂金', c1: '#8fe9dc', c2: '#2fa6a0' },
+    { name: '钻石', c1: '#88bdff', c2: '#3a6fd8' },
+    { name: '星耀', c1: '#c79bff', c2: '#7a3fe0' },
+    { name: '大师', c1: '#ff9bb0', c2: '#e74d6b' },
+    { name: '宗师', c1: '#ffc07a', c2: '#ff7a18' },
+    { name: '王者', c1: '#ffcf6b', c2: '#ff4d4d' },
+    { name: '传奇', c1: '#a8f5cf', c2: '#c9a227' },
+  ];
+
+  function getLevel(points) {
+    const p = Math.max(0, Number(points) || 0);
+    const L = Math.floor(Math.sqrt(p / 200)) + 1;
+    return Math.min(100, Math.max(1, L));
+  }
+
+  function getLevelMeta(level) {
+    level = Math.min(100, Math.max(1, level));
+    const tierIdx = Math.floor((level - 1) / 10); // 0..9
+    const tier = LEVEL_TIERS[tierIdx];
+    const inner = ((level - 1) % 10) + 1; // 1..10（段位内进度）
+    return { level, tierIdx: tierIdx + 1, tierName: tier.name, c1: tier.c1, c2: tier.c2, inner };
+  }
+
+  function levelLabel(level) { return 'V' + Math.min(100, Math.max(1, level)); }
+
+  // 当前登录用户的等级（基于累计积分）
+  function getCurrentUserLevel() {
+    const pts = (getUserPoints() && getUserPoints().totalGain) || 0;
+    return getLevel(pts);
+  }
+
+  // 根据用户 id 查询等级（依赖 CACHE.levelPoints 映射，缺失时按 V1 处理）
+  function getLevelPointsForUser(userId) {
+    if (!userId) return 0;
+    const m = CACHE.levelPoints || {};
+    return m[userId] || 0;
+  }
+  function getLevelForUser(userId) { return getLevel(getLevelPointsForUser(userId)); }
+
+  // 生成内联 SVG 等级图标（跟随昵称展示）
+  let _lvUid = 0;
+  // 生成内联 SVG 等级徽章：段位配色圆角矩形 + 等级文字（如 Lv 7），不展示段位名
+  // 横向修长比例（viewBox 46x18 ≈ 2.5:1），徽章高度明显小于昵称文字
+  function renderLevelBadge(level, opts) {
+    opts = opts || {};
+    const h = opts.size || 13;            // 徽章高度（明显小于昵称文字）
+    const w = Math.round(h * 2.3);        // 横向修长圆角矩形宽度
+    const m = getLevelMeta(level);
+    const gid = 'lvG' + (++_lvUid);
+    const label = 'Lv ' + m.level;        // 如 Lv 7 / Lv 100
+    const fs = label.length > 4 ? 8 : 10; // 位数多时收小字号
+    const baseY = (9 + 0.36 * fs).toFixed(1); // viewBox 高 18，文字垂直居中
+    return `<svg class="lv-badge-svg" width="${w}" height="${h}" viewBox="0 0 46 18" `
+      + `role="img" aria-label="Lv ${m.level} ${m.tierName}" `
+      + `style="vertical-align:middle;flex:0 0 auto;" `
+      + `title="Lv ${m.level} · ${m.tierName}"><defs>`
+      + `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">`
+      + `<stop offset="0" stop-color="${m.c1}"/><stop offset="1" stop-color="${m.c2}"/></linearGradient></defs>`
+      + `<rect x="1" y="1" width="44" height="16" rx="4.5" ry="4.5" fill="url(#${gid})"/>`
+      + `<text x="23" y="${baseY}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" `
+      + `font-size="${fs}" font-weight="800" fill="#fff" letter-spacing="0.2" `
+      + `style="paint-order:stroke;stroke:rgba(0,0,0,.22);stroke-width:.5px;">${label}</text></svg>`;
+  }
+
+  // 昵称 + 等级图标组合（用 flex 包裹，保证昵称与徽章严格垂直居中）
+  function renderNameWithLevel(name, level, opts) {
+    opts = opts || {};
+    const lv = Number(level) || 0;
+    const cls = opts.nameClass || 'uname';
+    const safeName = escapeHtml(name || '匿名');
+    if (!lv) return `<span class="${cls}">${safeName}</span>`;
+    return `<span class="lv-pair"><span class="${cls}">${safeName}</span>${renderLevelBadge(lv, opts)}</span>`;
+  }
+
 
   // ===== 签到系统 =====
   async function doSignin() {
@@ -167,9 +266,11 @@ const App = (() => {
     try {
       const r = await api('/api/auth/signin', { method: 'POST', body: '{}' });
       await loadMe();
-      showSigninResult(r.reward);
+      showSigninResult(r.reward, r.streak);
       renderNav();
       render();
+      loadLbPreview().then(() => { if (currentRoute === 'home') render(); });
+      if (currentRoute === 'checkin') loadCheckin(checkinPage).then(() => render());
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -177,26 +278,45 @@ const App = (() => {
 
   function hasSignedToday() { return !!(CACHE.me && CACHE.me.signedToday); }
 
-  function showSigninResult(point) {
+  function showSigninResult(point, streak) {
     const modal = openModal(`
       <div class="signin-result">
         <div class="signin-result-icon"><i class="fas fa-gift"></i></div>
         <div class="signin-result-title">🎉 签到成功！</div>
         <div class="signin-result-points">+${point}</div>
-        <div class="signin-result-sub">今日已获得签到积分</div>
+        <div class="signin-result-sub">${streak > 1 ? `已连续签到 ${streak} 天，明天继续！` : '今日已获得签到积分'}</div>
       </div>
     `, { hideFooter: true, hideClose: true });
     setTimeout(() => closeModal(modal), 2000);
   }
 
+  /* 排行榜（首页侧栏预览） */
+  async function loadLbPreview() {
+    try {
+      CACHE.lbPreview = await api('/api/signin/leaderboard?page=1&pageSize=5');
+    } catch { CACHE.lbPreview = null; }
+    return CACHE.lbPreview;
+  }
+
   // ===== 导航 =====
   let currentRoute = 'home';
   let searchQuery = '';
+  let searchFrom = 'home';
+  let searchTimer = null;
+  let checkinPage = 1;
+  const CHECKIN_PAGE_SIZE = 20;
 
   function navigate(route) {
     currentRoute = route;
+    // 手动切换栏目时清空搜索态，避免列表被旧关键词过滤
+    if (route !== 'search') {
+      searchQuery = '';
+      const si = document.getElementById('navSearchInput');
+      if (si) si.value = '';
+    }
     const links = document.querySelectorAll('.nav-link');
-    links.forEach(l => l.classList.toggle('active', l.dataset.route === route));
+    const activeRoute = route === 'checkin' ? 'home' : route;
+    links.forEach(l => l.classList.toggle('active', l.dataset.route === activeRoute));
 
     const root = document.getElementById('appRoot');
     root.classList.remove('fade-in');
@@ -207,6 +327,7 @@ const App = (() => {
     if (route === 'profile' && getToken()) {
       loadMe().then(() => { if (currentRoute === 'profile') { renderNav(); render(); } }).catch(() => {});
     }
+    if (route === 'checkin') loadCheckin(checkinPage).then(() => { if (currentRoute === 'checkin') render(); });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -216,9 +337,28 @@ const App = (() => {
   }
 
   function handleSearch(q) {
-    searchQuery = q.trim().toLowerCase();
-    if (currentRoute !== 'forum' && currentRoute !== 'home') return;
-    render();
+    const val = String(q || '');
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => runSearch(val), 180);
+  }
+
+  function searchNow(q) {
+    clearTimeout(searchTimer);
+    runSearch(q === undefined ? (document.getElementById('navSearchInput') || {}).value || '' : q);
+  }
+
+  function runSearch(val) {
+    searchQuery = String(val || '').trim().toLowerCase();
+    if (searchQuery) {
+      if (currentRoute !== 'search') searchFrom = currentRoute;
+      currentRoute = 'search';
+      render();
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    } else if (currentRoute === 'search') {
+      currentRoute = searchFrom || 'home';
+      render();
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.route === currentRoute));
+    }
   }
 
   // ===== 渲染主入口 =====
@@ -234,6 +374,10 @@ const App = (() => {
       case 'article': root.innerHTML = renderArticle(); break;
       case 'postDetail': root.innerHTML = renderPostDetail(); break;
       case 'personDetail': root.innerHTML = renderPersonDetail(); break;
+      case 'workDetail': root.innerHTML = renderWorkDetail(); break;
+      case 'checkin': root.innerHTML = renderCheckin(); break;
+      case 'featured': root.innerHTML = renderFeatured(); break;
+      case 'search': root.innerHTML = renderSearch(); break;
       case 'about': root.innerHTML = renderAbout(); break;
       default: root.innerHTML = renderHome();
     }
@@ -263,7 +407,7 @@ const App = (() => {
         <div class="dropdown" style="position:relative;">
           <button class="user-toggle" onclick="App.toggleUserMenu(event)">
             <div class="user-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:white;">${initial}</div>
-            <span class="user-name">${user.nickname || '用户'}</span>
+            ${renderNameWithLevel(user.nickname || '用户', getCurrentUserLevel(), { nameClass: 'user-name', size: 14 })}
             <i class="fas fa-chevron-down" style="font-size:0.6rem;color:var(--color-text-muted);"></i>
           </button>
         </div>
@@ -310,12 +454,26 @@ const App = (() => {
   function bindRouteEvents() {
     // Banner 轮播自动播放
     if (typeof window.startBannerCarousel === 'function') window.startBannerCarousel();
+
+    // 侧栏上部区域：内容超出时加渐隐遮罩，提示还可以滚动
+    const sc = document.querySelector('.sidebar-scroll');
+    if (sc) {
+      const sync = () => {
+        const more = sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4;
+        sc.classList.toggle('is-scrollable', more);
+      };
+      sc.addEventListener('scroll', sync, { passive: true });
+      sync();
+    }
   }
 
   // ===== 首页 =====
+  const HOME_FEATURED_LIMIT = 15;
+
   function renderHome() {
     const banners = getDB('banner');
     const articles = getDB('articles').sort((a, b) => (b.pinned - a.pinned) || (b.createdAt - a.createdAt));
+    const homeArticles = articles.slice(0, HOME_FEATURED_LIMIT);
     const posts = getDB('posts').filter(p => p.status === 'approved');
     const latestShares = posts.filter(p => p.type === 'share').slice(0, 5);
     const latestDemands = posts.filter(p => p.type === 'demand').slice(0, 5);
@@ -326,10 +484,11 @@ const App = (() => {
       <div class="page-layout">
         <div class="main-content">
           <div class="section-header">
-            <h2 class="section-title">站长推荐<span class="section-count">${articles.length} 篇</span></h2>
+            <h2 class="section-title">站长推荐<span class="section-count">共 ${articles.length} 篇</span></h2>
+            <a class="section-more" onclick="App.openFeatured(1)">查看全部 →</a>
           </div>
           <div class="article-grid">
-            ${articles.length > 0 ? articles.map(renderArticleCard).join('') : `
+            ${homeArticles.length > 0 ? homeArticles.map(renderArticleCard).join('') : `
               <div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text">暂无推荐文章</div></div>
             `}
           </div>
@@ -345,12 +504,14 @@ const App = (() => {
         </div>
 
         <aside class="sidebar">
+          <div class="sidebar-inner">
+          <div class="sidebar-scroll">
           <div class="sidebar-card">
             <div class="sidebar-header">
               <div class="sidebar-title"><i class="fas fa-check-circle"></i> 最新通过审核</div>
             </div>
             <div class="sidebar-body">
-              ${latestShares.length > 0 ? latestShares.slice(0, 4).map(p => `
+              ${latestShares.length > 0 ? latestShares.slice(0, 3).map(p => `
                 <div class="side-item" onclick="App.openPost('${p.id}')">
                   <span class="side-item-title">${p.title}</span>
                   <span class="side-item-extra">${timeAgo(p.createdAt)}</span>
@@ -364,7 +525,7 @@ const App = (() => {
               <div class="sidebar-title"><i class="fas fa-question-circle"></i> 最新求资源</div>
             </div>
             <div class="sidebar-body">
-              ${latestDemands.length > 0 ? latestDemands.slice(0, 4).map(p => `
+              ${latestDemands.length > 0 ? latestDemands.slice(0, 3).map(p => `
                 <div class="side-item" onclick="App.openPost('${p.id}')">
                   <span class="side-item-title">${p.title}</span>
                   <span class="side-item-extra reward">🏆 ${p.rewardPoint}</span>
@@ -378,10 +539,14 @@ const App = (() => {
               <div class="sidebar-title"><i class="fas fa-bullhorn"></i> 公告栏</div>
             </div>
             <div class="side-notice">
-              欢迎来到视觉社！本站为用户投稿、网盘外链信息交流站点。<br><br>
-              ⚠️ 本站不存储任何资源文件，所有资源由网友自行投稿，请注意甄别资源有效性。<br><br>
-              🎯 每日签到100-200积分，积分解锁优质分享帖。
+              本站不存储任何资源文件，内容由网友投稿，请自行甄别有效性。<br>
+              🎯 每日签到 100-200 积分，可用于解锁优质分享帖。
             </div>
+          </div>
+
+          </div>
+
+          ${renderLbPreview()}
           </div>
         </aside>
       </div>
@@ -430,16 +595,261 @@ const App = (() => {
     dots.forEach((d, idx) => d.classList.toggle('active', idx === i));
   }
 
+  // ===== 签到排行榜 / 签到中心 =====
+  function dateCN(ts = Date.now()) {
+    return new Date(ts + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
+  function rankClass(n) { return n <= 3 ? `lb-rank-${n}` : ''; }
+
+  function renderLbPreview() {
+    const d = CACHE.lbPreview;
+    // 侧栏只放前 4 名，保证小屏也能完整显示；完整榜单在「签到详情」页
+    const rows = ((d && d.list) || []).slice(0, 4);
+    return `
+      <div class="sidebar-card lb-card">
+        <div class="sidebar-header">
+          <div class="sidebar-title"><i class="fas fa-trophy"></i> 签到排行榜</div>
+          <span class="sidebar-more" onclick="App.openCheckin()">签到详情 →</span>
+        </div>
+        <div class="sidebar-body">
+          ${rows.length ? rows.map(r => `
+            <div class="lb-row" onclick="App.openCheckin()">
+              <span class="lb-rank ${rankClass(r.rank)}">${r.rank}</span>
+              <div class="lb-user">
+                <div class="lb-name">${escapeHtml(r.name)}</div>
+                <div class="lb-meta">连签 ${r.streak} 天 · ${timeAgo(r.lastAt)}</div>
+              </div>
+              <span class="lb-point">${r.points}<em>分</em></span>
+            </div>
+          `).join('') : '<div class="side-empty">还没有人签到，快来抢第一</div>'}
+          <div class="lb-foot">今日签到 ${d ? d.todayCount : 0} 人 · 累计 ${d ? d.totalRecords : 0} 次</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadCheckin(page = 1) {
+    try {
+      const r = await api(`/api/signin/leaderboard?page=${page}&pageSize=${CHECKIN_PAGE_SIZE}`);
+      CACHE.checkin = r;
+      checkinPage = r.page;
+    } catch { CACHE.checkin = null; }
+    return CACHE.checkin;
+  }
+
+  function openCheckin(page = 1) {
+    checkinPage = page;
+    currentRoute = 'checkin';
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.route === 'home'));
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    loadCheckin(page).then(() => { if (currentRoute === 'checkin') render(); });
+  }
+
+  function goCheckinPage(page) {
+    if (page < 1) return;
+    checkinPage = page;
+    render();
+    document.getElementById('checkinList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    loadCheckin(page).then(() => { if (currentRoute === 'checkin') render(); });
+  }
+
+  function renderPager(page, totalPages, fn = 'goCheckinPage') {
+    if (totalPages <= 1) return '';
+    const nums = [];
+    const push = n => nums.push(`<button class="pager-btn ${n === page ? 'active' : ''}" onclick="App.${fn}(${n})">${n}</button>`);
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) push(i);
+    } else {
+      push(1);
+      if (page > 3) nums.push('<span class="pager-gap">…</span>');
+      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) push(i);
+      if (page < totalPages - 2) nums.push('<span class="pager-gap">…</span>');
+      push(totalPages);
+    }
+    return `
+      <div class="pager">
+        <button class="pager-btn" onclick="App.${fn}(${page - 1})" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+        ${nums.join('')}
+        <button class="pager-btn" onclick="App.${fn}(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+      </div>
+    `;
+  }
+
+  function renderCheckin() {
+    const d = CACHE.checkin;
+    const me = CACHE.me;
+    const signed = hasSignedToday();
+    const streak = (me && me.signStreak) || 0;
+    const days = (me && me.signDays) || 0;
+    const myPoints = (me && me.points && me.points.available) || 0;
+    const todayRec = me && me.signRecords ? me.signRecords.find(r => r.date === dateCN()) : null;
+
+    const list = (d && d.list) || [];
+    const page = (d && d.page) || 1;
+    const totalPages = (d && d.totalPages) || 1;
+
+    return `
+      <button onclick="App.navigate('home')" class="ck-back">
+        <i class="fas fa-arrow-left"></i> 返回首页
+      </button>
+
+      <div class="section-header">
+        <h2 class="section-title">签到中心</h2>
+        <span class="section-count">每日 00:00 重置</span>
+      </div>
+
+      <div class="checkin-hero">
+        <div class="checkin-hero-main">
+          <div class="checkin-ring ${signed ? 'done' : ''}">
+            <i class="fas ${signed ? 'fa-check' : 'fa-calendar-check'}"></i>
+          </div>
+          <div class="checkin-hero-text">
+            <div class="checkin-status">今日${signed ? '已签到' : '还未签到'}</div>
+            <div class="checkin-sub">${signed
+              ? `今日已获得 <b>+${todayRec ? todayRec.point : 0}</b> 积分`
+              : '签到可得 100~200 随机积分'}</div>
+            <div class="checkin-streak">🔥 已连续签到 <b>${streak}</b> 天</div>
+          </div>
+        </div>
+        <button class="btn btn-primary checkin-btn" onclick="App.doSignin()" ${signed ? 'disabled' : ''}>
+          ${signed ? '<i class="fas fa-check"></i> 今日已签到' : '立即签到'}
+        </button>
+      </div>
+
+      <div class="checkin-stats">
+        <div class="checkin-stat"><div class="checkin-stat-value">${streak}</div><div class="checkin-stat-label">连续签到（天）</div></div>
+        <div class="checkin-stat"><div class="checkin-stat-value">${days}</div><div class="checkin-stat-label">累计签到（天）</div></div>
+        <div class="checkin-stat"><div class="checkin-stat-value">${myPoints}</div><div class="checkin-stat-label">我的可用积分</div></div>
+        <div class="checkin-stat"><div class="checkin-stat-value">${d ? d.todayCount : 0}</div><div class="checkin-stat-label">今日签到人数</div></div>
+      </div>
+
+      <div class="ck-card">
+        <div class="ck-card-head"><span><i class="fas fa-scroll"></i> 签到规则</span></div>
+        <ol class="ck-rules">
+          <li>每人每日可签到 1 次，随机获得 <b>100~200</b> 积分，按自然日（UTC+8）00:00 重置。</li>
+          <li>连续签到按自然日累计，中断 1 天即从 1 重新计算，排行榜按「连续签到 → 累计签到 → 累计积分」排序。</li>
+          <li>积分可用于解锁资源帖（文章网盘）与发布悬赏，不可提现、不可转让。</li>
+          <li>禁止脚本刷签、多账号互刷等作弊行为，一经发现清零积分并封禁账号。</li>
+        </ol>
+      </div>
+
+      <div class="ck-card" id="checkinList">
+        <div class="ck-card-head">
+          <span><i class="fas fa-trophy"></i> 签到排行榜</span>
+          <span class="ck-card-sub">共 ${d ? d.totalUsers : 0} 人参与 · 累计 ${d ? d.totalRecords : 0} 次</span>
+        </div>
+
+        ${d && d.me ? `
+          <div class="ck-me">
+            <span class="lb-rank ${rankClass(d.me.rank)}">${d.me.rank}</span>
+            <span class="ck-me-name">我的排名</span>
+            <span class="ck-me-meta">连签 ${d.me.streak} 天 · 累计 ${d.me.days} 天 · ${d.me.points} 分</span>
+          </div>
+        ` : ''}
+
+        ${list.length ? `
+          <div class="ck-table">
+            <div class="ck-row ck-head">
+              <span class="ck-col-rank">排名</span>
+              <span class="ck-col-user">用户</span>
+              <span class="ck-col-num">连续</span>
+              <span class="ck-col-num">累计</span>
+              <span class="ck-col-num">积分</span>
+              <span class="ck-col-time">最近签到</span>
+            </div>
+            ${list.map(r => `
+              <div class="ck-row ${me && me.user && me.user.id === r.userId ? 'me' : ''}">
+                <span class="ck-col-rank"><span class="lb-rank ${rankClass(r.rank)}">${r.rank}</span></span>
+                <span class="ck-col-user">
+                  ${renderNameWithLevel(r.name, getLevelForUser(r.userId), { nameClass: 'ck-name', size: 13 })}
+                  ${r.signedToday ? '<span class="ck-badge">今日已签</span>' : ''}
+                </span>
+                <span class="ck-col-num"><b>${r.streak}</b> 天</span>
+                <span class="ck-col-num"><b>${r.days}</b> 天</span>
+                <span class="ck-col-num point"><b>${r.points}</b></span>
+                <span class="ck-col-time">${timeAgo(r.lastAt)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="ck-pager-wrap">
+            <span class="ck-pager-info">第 ${page} / ${totalPages} 页</span>
+            ${renderPager(page, totalPages)}
+          </div>
+        ` : `
+          <div class="empty-state"><div class="empty-state-icon">🏆</div><div class="empty-state-text">还没有签到记录，快来成为第一名</div></div>
+        `}
+      </div>
+    `;
+  }
+
+  /* ===== 站长推荐完整列表（20 条/页） ===== */
+  const FEATURED_PAGE_SIZE = 20;
+  let featuredPage = 1;
+
+  function openFeatured(page = 1) {
+    featuredPage = Math.max(1, parseInt(page, 10) || 1);
+    navigate('featured');
+  }
+
+  function goFeaturedPage(page) {
+    const total = getDB('articles').length;
+    const totalPages = Math.max(1, Math.ceil(total / FEATURED_PAGE_SIZE));
+    if (page < 1 || page > totalPages) return;
+    featuredPage = page;
+    render();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function renderFeatured() {
+    const articles = getDB('articles').sort((a, b) => (b.pinned - a.pinned) || (b.createdAt - a.createdAt));
+    const total = articles.length;
+    const totalPages = Math.max(1, Math.ceil(total / FEATURED_PAGE_SIZE));
+    const page = Math.min(totalPages, Math.max(1, featuredPage));
+    const start = (page - 1) * FEATURED_PAGE_SIZE;
+    const list = articles.slice(start, start + FEATURED_PAGE_SIZE);
+
+    return `
+      <div class="featured-page">
+        <button class="back-link" onclick="App.navigate('home')">
+          <i class="fas fa-arrow-left"></i> 返回首页
+        </button>
+
+        <div class="section-header">
+          <h2 class="section-title">站长推荐<span class="section-count">共 ${total} 篇</span></h2>
+          <span class="featured-sub">每页 ${FEATURED_PAGE_SIZE} 篇 · 第 ${page} / ${totalPages} 页</span>
+        </div>
+
+        ${list.length ? `
+          <div class="article-grid">
+            ${list.map(renderArticleCard).join('')}
+          </div>
+        ` : `
+          <div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text">暂无推荐文章</div></div>
+        `}
+
+        ${totalPages > 1 ? `
+          <div class="featured-pager">
+            ${renderPager(page, totalPages, 'goFeaturedPage')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
   function renderArticleCard(a) {
     return `
       <article class="article-card" onclick="App.openArticle('${a.id}')">
         <div class="article-card-cover">
           ${a.pinned ? '<span class="article-card-badge"><i class="fas fa-thumbtack"></i> 置顶</span>' : ''}
-          <img src="${a.cover}" alt="${a.title}" loading="lazy">
+          ${a.cover
+            ? `<img src="${escapeHtml(a.cover)}" alt="${escapeHtml(a.title)}" loading="lazy" onerror="this.style.display='none'">`
+            : '<div class="ph-cover"><i class="fas fa-newspaper"></i></div>'}
         </div>
         <div class="article-card-body">
-          <div class="article-card-title">${a.title}</div>
-          <div class="article-card-excerpt">${a.excerpt || ''}</div>
+          <div class="article-card-title">${escapeHtml(a.title)}</div>
+          <div class="article-card-excerpt">${escapeHtml(a.excerpt || '')}</div>
           <div class="article-card-footer">
             <span class="footer-main"><i class="fas fa-user"></i> ${a.author}</span>
             <span class="footer-main"><i class="fas fa-eye"></i> ${a.views || 0}</span>
@@ -450,22 +860,34 @@ const App = (() => {
     `;
   }
 
+  /* 论坛列表缩略图：无自定义缩略图时用默认图；链接失效也回退默认图 */
+  function postThumbHtml(p) {
+    const fb = defaultThumb().replace(/'/g, '%27');
+    return `<div class="post-thumb"><img src="${escapeHtml(postThumb(p))}" alt="" loading="lazy" decoding="async"
+      onload="this.classList.add('is-loaded');this.parentNode.classList.add('loaded')"
+      onerror="this.onerror=null;this.src='${fb}'"></div>`;
+  }
+
   function renderSharePostCard(p) {
     return `
-      <div class="post-card" onclick="App.openPost('${p.id}')">
-        <div class="post-card-header">
-          <div class="post-card-title">📤 ${p.title}</div>
-          <div class="post-card-tags">
-            ${p.unlockPoint > 0 ? `<span class="lock-tag">🔒 ${p.unlockPoint}积分</span>` : `<span class="tag tag-green">免费</span>`}
+      <div class="post-card post-card-media" onclick="App.openPost('${p.id}')">
+        ${postThumbHtml(p)}
+        <div class="post-card-body">
+          <div class="post-card-header">
+            <div class="post-card-title"><i class="fas fa-upload post-type-ic"></i>${escapeHtml(p.title)}</div>
+            <div class="post-card-tags">
+              ${p.unlockPoint > 0 ? `<span class="lock-tag">🔒 ${p.unlockPoint}积分</span>` : `<span class="tag tag-green">免费</span>`}
+            </div>
           </div>
-        </div>
-        <div class="post-card-meta" style="font-size:0.75rem;color:var(--color-text-muted);">
-          <span class="tag">${p.netdiskType}</span>
-          <span>📂 ${p.resourceType}</span>
-        </div>
-        <div class="post-card-footer" style="margin-top:0.5rem;">
-          <span>分享者：${p.userName}</span>
-          <span>${timeAgo(p.createdAt)}</span>
+          <div class="post-card-meta" style="font-size:0.75rem;color:var(--color-text-muted);">
+            <span class="tag">${escapeHtml(p.netdiskType)}</span>
+            <span>📂 ${escapeHtml(p.resourceType)}</span>
+            ${p.personId ? `<span class="tag tag-blue">👤 ${escapeHtml((getDB('persons').find(x => x.id === p.personId) || {}).name || '名录')}</span>` : ''}
+          </div>
+          <div class="post-card-footer" style="margin-top:0.5rem;">
+            <span>分享者：${renderNameWithLevel(p.userName, getLevelForUser(p.userId), { nameClass: '', size: 14 })}</span>
+            <span>${timeAgo(p.createdAt)}</span>
+          </div>
         </div>
       </div>
     `;
@@ -473,21 +895,24 @@ const App = (() => {
 
   function renderDemandPostCard(p) {
     return `
-      <div class="post-card" onclick="App.openPost('${p.id}')">
-        <div class="post-card-header">
-          <div class="post-card-title">🔍 ${p.title}</div>
-          <div class="post-card-tags">
-            ${p.rewardPoint > 0 ? `<span class="reward-tag">🏆 ${p.rewardPoint}积分</span>` : '<span class="tag tag-gray">无悬赏</span>'}
+      <div class="post-card post-card-media" onclick="App.openPost('${p.id}')">
+        ${postThumbHtml(p)}
+        <div class="post-card-body">
+          <div class="post-card-header">
+            <div class="post-card-title"><i class="fas fa-search post-type-ic"></i>${escapeHtml(p.title)}</div>
+            <div class="post-card-tags">
+              ${p.rewardPoint > 0 ? `<span class="reward-tag">🏆 ${p.rewardPoint}积分</span>` : '<span class="tag tag-gray">无悬赏</span>'}
+            </div>
           </div>
-        </div>
-        <div class="post-card-meta" style="font-size:0.75rem;color:var(--color-text-muted);">
-          <span class="tag">${p.resourceType}</span>
-          <span>网盘偏好：${(p.netdiskPref || []).join('/')}</span>
-        </div>
-        <div class="post-card-footer" style="margin-top:0.5rem;">
-          <span>求方：${p.userName}</span>
-          <span>${p.isFinish ? '<span style="color:var(--color-success);">已结单</span>' : '<span style="color:var(--color-warning);">待接单</span>'}</span>
-          <span>${timeAgo(p.createdAt)}</span>
+          <div class="post-card-meta" style="font-size:0.75rem;color:var(--color-text-muted);">
+            <span class="tag">${escapeHtml(p.resourceType)}</span>
+            <span>网盘偏好：${(p.netdiskPref || []).map(escapeHtml).join('/')}</span>
+          </div>
+          <div class="post-card-footer" style="margin-top:0.5rem;">
+            <span>求方：${renderNameWithLevel(p.userName, getLevelForUser(p.userId), { nameClass: '', size: 14 })}</span>
+            <span>${p.isFinish ? '<span style="color:var(--color-success);">已结单</span>' : '<span style="color:var(--color-warning);">待接单</span>'}</span>
+            <span>${timeAgo(p.createdAt)}</span>
+          </div>
         </div>
       </div>
     `;
@@ -557,6 +982,30 @@ const App = (() => {
       </div>`;
   }
 
+  /* 关联网友帖子的推荐：文章内不再单独解锁，全部引导到帖子下单 */
+  function renderViaPostCard(rp) {
+    const cost = rp.unlockPoint || 0;
+    const isDemand = rp.type === 'demand';
+    return `
+      <div class="via-post-card">
+        <div class="via-post-head">
+          <span class="via-post-icon"><i class="fas ${isDemand ? 'fa-search' : 'fa-share-nodes'}"></i></span>
+          <div class="via-post-main">
+            <div class="via-post-label">网友投稿 · ${isDemand ? '悬赏区' : '资源区'}</div>
+            <div class="via-post-title">${escapeHtml(rp.title)}</div>
+          </div>
+          <span class="via-post-cost">${cost > 0 ? `<i class="fas fa-lock"></i> ${cost} 积分` : '<span class="tag tag-green">免费</span>'}</span>
+        </div>
+        <div class="via-post-note">
+          本篇为网友投稿的推荐导读，网盘与积分都由帖子本身管理。
+          ${cost > 0 ? `前往帖子消耗 <b>${cost}</b> 积分解锁后即可查看网盘链接。` : '前往帖子即可直接查看网盘链接。'}
+        </div>
+        <button class="btn btn-primary via-post-btn" onclick="App.openPost('${rp.id}')">
+          <i class="fas fa-arrow-right"></i> 前往帖子${cost > 0 ? '解锁下单' : '查看资源'}
+        </button>
+      </div>`;
+  }
+
   // 评论区
   function renderComments(id) {
     const cs = (CACHE.articleComments && CACHE.articleComments.id === id)
@@ -568,7 +1017,7 @@ const App = (() => {
         <div class="comment-avatar">${escapeHtml((c.userName || '友').slice(0, 1).toUpperCase())}</div>
         <div class="comment-main">
           <div class="comment-head">
-            <span class="comment-name">${escapeHtml(c.userName || '匿名网友')}</span>
+            ${renderNameWithLevel(c.userName || '匿名网友', getLevelForUser(c.userId), { nameClass: 'comment-name', size: 14 })}
             ${i === 0 ? '<span class="comment-first">🏆 首评 +10积分</span>' : ''}
             <span class="comment-time">${timeAgo(c.createdAt)}</span>
           </div>
@@ -588,7 +1037,7 @@ const App = (() => {
           <div class="comment-avatar comment-avatar-me">${user ? escapeHtml((user.nickname || '友').slice(0, 1).toUpperCase()) : '<i class="fas fa-user"></i>'}</div>
           <textarea id="commentInput" class="comment-input" rows="2" maxlength="500"
             placeholder="${user ? '友善评论，抢首评拿积分…' : '登录后即可参与评论'}"></textarea>
-          <button class="btn btn-primary btn-sm comment-submit" onclick="App.postComment('${id}')">发表</button>
+          <button class="btn btn-primary btn-sm comment-submit" onclick="App.postArticleComment('${id}')">发表</button>
         </div>
         ${user ? '' : `<div class="comments-login-hint">需要先 <a onclick="App.showLoginModal()">登录</a> 才能评论 · 每篇文章第一条评论奖励 10 积分</div>`}
       </div>`;
@@ -602,6 +1051,9 @@ const App = (() => {
     if (!a) return '<div class="empty-state"><div class="empty-state-text">文章不存在</div></div>';
 
     const relatedPosts = getDB('posts').filter(p => p.status === 'approved' && p.type === 'share').slice(0, 4);
+    const relPost = a.relatedPost || (a.relatedPostId
+      ? getDB('posts').find(p => p.id === a.relatedPostId && p.status === 'approved')
+      : null);
 
     return `
       <div class="detail-page">
@@ -611,7 +1063,7 @@ const App = (() => {
 
       <article style="background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;">
         <div style="aspect-ratio:16/7;overflow:hidden;">
-          <img src="${a.cover}" alt="${escapeHtml(a.title)}" style="width:100%;height:100%;object-fit:cover;">
+          ${a.cover ? `<img src="${escapeHtml(a.cover)}" alt="${escapeHtml(a.title)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : '<div class="ph-cover"><i class="fas fa-newspaper"></i></div>'}
         </div>
         <div style="padding:2rem;">
           <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-text);margin-bottom:0.75rem;">${escapeHtml(a.title)}</h1>
@@ -656,7 +1108,7 @@ const App = (() => {
   }
 
   // 发表评论（每篇文章第一条评论奖励 10 积分）
-  async function postComment(articleId) {
+  async function postArticleComment(articleId) {
     const user = getCurrentUser();
     if (!user) { showLoginModal(); return; }
     const el = document.getElementById('commentInput');
@@ -707,7 +1159,7 @@ const App = (() => {
   }
 
   // ===== 社区论坛 =====
-  let forumTab = 'demand';
+  let forumTab = 'share';
 
   function renderForum() {
     const cats = getDB('categories');
@@ -757,6 +1209,94 @@ const App = (() => {
     render();
   }
 
+  // ===== 搜索结果 =====
+  function renderSearch() {
+    const q = searchQuery;
+    if (!q) return '<div class="empty-state"><div class="empty-state-text">请输入关键词</div></div>';
+
+    const hit = (...fields) => fields.some(f => String(f || '').toLowerCase().includes(q));
+    const posts = getDB('posts').filter(p => p.status === 'approved' && hit(p.title, p.content, p.userName));
+    const articles = getDB('articles').filter(a => hit(a.title, a.excerpt, a.content, a.author));
+    const persons = getDB('persons').filter(p => hit(p.name, p.tag, p.bio));
+    const works = getDB('works').filter(w => w.status === 'approved' && hit(w.title, w.content, w.userName));
+    const total = posts.length + articles.length + persons.length + works.length;
+
+    const block = (title, icon, count, body) => count > 0 ? `
+      <div class="search-block">
+        <div class="section-header" style="margin-bottom:0.75rem;">
+          <h2 class="section-title" style="font-size:1rem;"><i class="fas ${icon}" style="color:var(--color-primary);margin-right:0.375rem;"></i>${title}<span class="section-count">${count} 条</span></h2>
+        </div>
+        ${body}
+      </div>
+    ` : '';
+
+    return `
+      <div class="section-header">
+        <h2 class="section-title">搜索结果</h2>
+        <span class="section-count">共 ${total} 条</span>
+      </div>
+      <div class="search-summary">
+        关键词「<b>${escapeHtml(q)}</b>」·
+        ${total > 0 ? '在社区帖子、站长推荐、姬查查名录中为你找到以下内容' : '没有找到相关内容，换个关键词试试'}
+      </div>
+
+      ${total === 0 ? `
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <div class="empty-state-text">没有找到「${escapeHtml(q)}」相关内容</div>
+          <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;">
+            <button class="btn btn-secondary btn-sm" onclick="App.navigate('forum')">去社区逛逛</button>
+            <button class="btn btn-secondary btn-sm" onclick="App.navigate('jicha')">去名录看看</button>
+          </div>
+        </div>
+      ` : ''}
+
+      ${block('社区帖子', 'fa-comments', posts.length, `
+        <div class="post-list">
+          ${posts.map(p => p.type === 'demand' ? renderDemandPostCard(p) : renderSharePostCard(p)).join('')}
+        </div>
+      `)}
+
+      ${block('站长推荐', 'fa-newspaper', articles.length, `
+        <div class="article-grid">
+          ${articles.map(renderArticleCard).join('')}
+        </div>
+      `)}
+
+      ${block('网友作品', 'fa-images', works.length, `
+        <div class="masonry">
+          ${works.map(w => `
+            <div class="masonry-item">
+              <div class="work-card" onclick="App.openWork('${w.id}')">
+                <div class="work-card-cover">${w.cover ? `<img src="${escapeHtml(w.cover)}" alt="${escapeHtml(w.title)}" onerror="this.style.display='none'">` : '<div class="ph-cover"><i class="fas fa-image"></i></div>'}</div>
+                <div class="work-card-body">
+                  <div class="work-card-name">${escapeHtml(w.title)}</div>
+                  <span class="tag tag-blue" style="font-size:0.625rem;">${escapeHtml(w.netdiskType || '网盘')}</span>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `)}
+
+      ${block('姬查查名录', 'fa-user-friends', persons.length, `
+        <div class="masonry">
+          ${persons.map(p => `
+            <div class="masonry-item">
+              <div class="person-card" onclick="App.openPerson('${p.id}')">
+                <div class="person-card-avatar">${p.avatar ? `<img src="${escapeHtml(p.avatar)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'">` : `<span class="avatar-letter">${escapeHtml((p.name || '?').charAt(0))}</span>`}</div>
+                <div class="person-card-info">
+                  <div class="person-card-name">${escapeHtml(p.name)}</div>
+                  <div class="person-card-tag">${escapeHtml(p.tag || '')}</div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `)}
+    `;
+  }
+
   // ===== 姬查查名录 =====
   function renderJicha() {
     const persons = getDB('persons');
@@ -777,11 +1317,13 @@ const App = (() => {
             <div class="masonry-item">
               <div class="person-card" onclick="App.openPerson('${p.id}')">
                 <div class="person-card-avatar">
-                  <img src="${p.avatar}" alt="${p.name}">
+                  ${p.avatar
+                    ? `<img src="${escapeHtml(p.avatar)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'">`
+                    : `<span class="avatar-letter">${escapeHtml((p.name || '?').charAt(0))}</span>`}
                 </div>
                 <div class="person-card-info">
-                  <div class="person-card-name">${p.name}</div>
-                  <div class="person-card-tag">${p.tag}</div>
+                  <div class="person-card-name">${escapeHtml(p.name)}</div>
+                  <div class="person-card-tag">${escapeHtml(p.tag || '')}</div>
                 </div>
               </div>
             </div>
@@ -803,6 +1345,7 @@ const App = (() => {
     const id = sessionStorage.getItem('currentPersonId');
     const person = getDB('persons').find(p => p.id === id);
     const works = getDB('works').filter(w => w.personId === id && w.status === 'approved');
+    const relPosts = getDB('posts').filter(p => p.personId === id && p.status === 'approved');
 
     if (!person) return '<div class="empty-state"><div class="empty-state-text">人物不存在</div></div>';
 
@@ -814,7 +1357,7 @@ const App = (() => {
 
       <div style="background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:2rem;display:flex;gap:1.5rem;align-items:flex-start;">
         <div style="width:120px;height:120px;border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;">
-          <img src="${person.avatar}" alt="${person.name}" style="width:100%;height:100%;object-fit:cover;">
+          ${person.avatar ? `<img src="${escapeHtml(person.avatar)}" alt="${escapeHtml(person.name)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<span class="avatar-letter" style="font-size:2.5rem;">${escapeHtml((person.name || '?').charAt(0))}</span>`}
         </div>
         <div style="flex:1;min-width:0;">
           <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-text);margin-bottom:0.375rem;">${person.name}</h1>
@@ -835,9 +1378,9 @@ const App = (() => {
         <div class="masonry">
           ${works.map(w => `
             <div class="masonry-item">
-              <div class="work-card" onclick="App.openPost('${w.id}')">
+              <div class="work-card" onclick="App.openWork('${w.id}')">
                 <div class="work-card-cover">
-                  <img src="${w.cover}" alt="${w.title}">
+                  ${w.cover ? `<img src="${escapeHtml(w.cover)}" alt="${escapeHtml(w.title)}" onerror="this.style.display='none'">` : '<div class="ph-cover"><i class="fas fa-image"></i></div>'}
                 </div>
                 <div class="work-card-body">
                   <div class="work-card-name">${w.title}</div>
@@ -850,6 +1393,82 @@ const App = (() => {
       ` : `
         <div class="empty-state"><div class="empty-state-icon">🎨</div><div class="empty-state-text">还没有作品投稿</div></div>
       `}
+
+      ${relPosts.length ? `
+        <div class="section-header" style="margin-top:2rem;">
+          <h2 class="section-title" style="font-size:1rem;">相关资源帖 (${relPosts.length})</h2>
+        </div>
+        <div class="post-list">
+          ${relPosts.map(p => p.type === 'demand' ? renderDemandPostCard(p) : renderSharePostCard(p)).join('')}
+        </div>
+      ` : ''}
+      </div>
+    `;
+  }
+
+  // ===== 网友作品详情 =====
+  function openWork(id) {
+    sessionStorage.setItem('currentWorkId', id);
+    currentRoute = 'workDetail';
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderWorkDetail() {
+    const id = sessionStorage.getItem('currentWorkId');
+    const w = getDB('works').find(x => x.id === id);
+    if (!w) {
+      return `
+        <div class="empty-state">
+          <div class="empty-state-icon">🎨</div>
+          <div class="empty-state-text">作品不存在或已下架</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:1rem;" onclick="App.navigate('jicha')">返回名录</button>
+        </div>
+      `;
+    }
+    const person = getDB('persons').find(p => p.id === w.personId);
+
+    return `
+      <div class="detail-page">
+        <button onclick="${person ? `App.openPerson('${person.id}')` : "App.navigate('jicha')"}" class="ck-back">
+          <i class="fas fa-arrow-left"></i> ${person ? `返回 ${escapeHtml(person.name)}` : '返回名录'}
+        </button>
+
+        <div class="work-detail">
+          ${w.cover ? `<div class="work-detail-cover"><img src="${w.cover}" alt="${escapeHtml(w.title)}"></div>` : ''}
+          <div class="work-detail-body">
+            <h1 class="work-detail-title">${escapeHtml(w.title)}</h1>
+            <div class="work-detail-meta">
+              <span class="tag tag-blue">${escapeHtml(w.netdiskType || '网盘')}</span>
+              ${person ? `<span class="tag" style="cursor:pointer;" onclick="App.openPerson('${person.id}')">👤 ${escapeHtml(person.name)}</span>` : ''}
+              <span class="work-detail-sub">由 ${escapeHtml(w.userName || '网友')} 投稿 · ${timeAgo(w.createdAt)}</span>
+            </div>
+
+            ${w.content ? `<div class="work-detail-desc">${escapeHtml(w.content).replace(/\n/g, '<br>')}</div>` : ''}
+
+            <div class="work-detail-link">
+              <div class="work-detail-link-label"><i class="fas fa-link"></i> 网盘链接</div>
+              ${w.link ? `
+                <div class="work-detail-link-row">
+                  <input class="form-input" readonly value="${escapeHtml(w.link)}" onclick="this.select()">
+                  <button class="btn btn-primary btn-sm" onclick="App.copyText('${String(w.link).replace(/'/g, "\\'")}')">复制链接</button>
+                </div>
+                ${w.extractCode ? `
+                  <div class="work-detail-link-row" style="margin-top:0.5rem;">
+                    <input class="form-input" readonly value="提取码：${escapeHtml(w.extractCode)}" onclick="this.select()">
+                    <button class="btn btn-secondary btn-sm" onclick="App.copyText('${String(w.extractCode).replace(/'/g, "\\'")}')">复制提取码</button>
+                  </div>
+                ` : ''}
+              ` : `
+                <div class="work-detail-empty"><i class="fas fa-hourglass-half"></i> 投稿人暂未填写网盘链接，可稍后再来看看</div>
+              `}
+            </div>
+
+            <div class="work-detail-tip">
+              <i class="fas fa-info-circle"></i> 资源由网友投稿分享，本站不存储任何文件，请自行甄别有效性。
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -859,11 +1478,93 @@ const App = (() => {
     sessionStorage.setItem('currentPostId', id);
     currentRoute = 'postDetail';
     CACHE.postDetail = null;
+    CACHE.postComments = { id, list: [], count: 0, loaded: false };
     render();
     api(`/api/posts/${encodeURIComponent(id)}`).then(p => {
       CACHE.postDetail = p;
       if (currentRoute === 'postDetail' && sessionStorage.getItem('currentPostId') === id) render();
     }).catch(() => {});
+    loadPostComments(id);
+  }
+
+  function loadPostComments(id) {
+    const target = id || sessionStorage.getItem('currentPostId');
+    if (!target) return;
+    api(`/api/posts/${encodeURIComponent(target)}/comments`).then(r => {
+      if (sessionStorage.getItem('currentPostId') !== target) return;
+      CACHE.postComments = { id: target, list: r.comments || [], count: r.count || 0, loaded: true };
+      if (currentRoute === 'postDetail') render();
+    }).catch(() => {});
+  }
+
+  function renderPostComments(p) {
+    const cc = (CACHE.postComments && CACHE.postComments.id === p.id) ? CACHE.postComments : { list: [], count: p.commentCount || 0, loaded: false };
+    const user = getCurrentUser();
+    return `
+      <section class="post-comments">
+        <div class="pc-head">
+          <span><i class="fas fa-comments"></i> 评论区</span>
+          <span class="pc-count">${cc.count} 条留言</span>
+        </div>
+        <div class="pc-list">
+          ${cc.list.length ? cc.list.map(c => `
+            <div class="pc-item">
+              <div class="pc-avatar">${(c.userName || '?').charAt(0)}</div>
+              <div class="pc-body">
+                <div class="pc-meta">
+                  ${renderNameWithLevel(c.userName || '网友', getLevelForUser(c.userId), { nameClass: 'pc-name', size: 14 })}
+                  ${c.mentionAdmin ? '<span class="pc-at">@管理员</span>' : ''}
+                  <span class="pc-time">${timeAgo(c.createdAt)}</span>
+                </div>
+                <div class="pc-text">${escapeHtml(c.content)}</div>
+              </div>
+            </div>
+          `).join('') : `<div class="pc-empty">${cc.loaded ? '还没有留言，来说两句吧' : '留言加载中…'}</div>`}
+        </div>
+        <div class="pc-form">
+          <textarea class="form-textarea" id="postCommentInput" rows="3" placeholder="友善交流，禁止直接放网盘链接。需要管理员处理可点「@管理员」。"></textarea>
+          <div class="pc-actions">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="App.mentionAdmin()">
+              <i class="fas fa-at"></i> @管理员
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="App.postComment()">
+              ${user ? '发表留言' : '登录后留言'}
+            </button>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  async function postComment() {
+    const user = getCurrentUser();
+    if (!user) { showLoginModal(); return; }
+    const el = document.getElementById('postCommentInput');
+    const content = (el ? el.value : '').trim();
+    if (!content) { toast('请输入留言内容', 'warning'); return; }
+    const postId = sessionStorage.getItem('currentPostId');
+    try {
+      const r = await api(`/api/posts/${encodeURIComponent(postId)}/comments`, {
+        method: 'POST', body: JSON.stringify({ content }),
+      });
+      if (CACHE.postComments && CACHE.postComments.id === postId) {
+        CACHE.postComments.list.push(r.comment);
+        CACHE.postComments.count = r.count;
+      }
+      toast(r.comment.mentionAdmin ? '留言已发布，管理员会尽快处理' : '留言已发布', 'success');
+      render();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  function mentionAdmin() {
+    const el = document.getElementById('postCommentInput');
+    if (!el) return;
+    const at = '@管理员 ';
+    if (!el.value.includes(at)) el.value = at + el.value.replace(/^\s+/, '');
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
   }
 
   function renderPostDetail() {
@@ -874,9 +1575,16 @@ const App = (() => {
     if (!p) return '<div class="empty-state"><div class="empty-state-text">帖子不存在</div></div>';
 
     const user = getCurrentUser();
+    const isOwner = !!user && (p.isOwner || p.userId === user.id);
+    const isAdminUser = !!(user && user.role === 'admin');
+    const canEdit = isOwner || isAdminUser;
     const isUnlocked = user && (CACHE.me.myUnlocked || []).includes(id);
-    const canUnlock = user && !isUnlocked && p.unlockPoint > 0;
+    const canSeeLink = isOwner || isAdminUser || isUnlocked || !(p.unlockPoint > 0);
+    const canUnlock = user && !isOwner && !isUnlocked && p.unlockPoint > 0;
     const points = getUserPoints();
+    const images = Array.isArray(p.images) ? p.images : [];
+    const cover = p.cover || images[0] || '';
+    const person = p.person || (p.personId ? getDB('persons').find(x => x.id === p.personId) : null);
 
     return `
       <div class="detail-page">
@@ -885,45 +1593,72 @@ const App = (() => {
       </button>
 
       <article style="background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem;">
-        ${p.type === 'share' ? `
-          <div style="border-radius:var(--radius-md);overflow:hidden;margin-bottom:1.25rem;">
-            <img src="${p.cover}" alt="${p.title}" style="width:100%;max-height:400px;object-fit:cover;">
+        ${cover ? `
+          <div class="post-cover">
+            <img src="${escapeHtml(cover)}" alt="${escapeHtml(p.title)}" onerror="this.parentNode.style.display='none'">
           </div>
         ` : ''}
 
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem;">
-          <div style="flex:1;">
-            <h1 style="font-size:1.375rem;font-weight:700;color:var(--color-text);margin-bottom:0.5rem;">${p.type === 'demand' ? '🔍 ' : '📤 '}${p.title}</h1>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-              ${p.type === 'share' ? `<span class="tag tag-blue">${p.netdiskType}</span>` : ''}
-              <span class="tag">${p.resourceType}</span>
+          <div style="flex:1;min-width:0;">
+            <h1 style="font-size:1.375rem;font-weight:700;color:var(--color-text);margin-bottom:0.5rem;">
+              <i class="fas ${p.type === 'demand' ? 'fa-search' : 'fa-upload'} post-type-ic"></i>${escapeHtml(p.title)}
+            </h1>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+              ${p.type === 'share' ? `<span class="tag tag-blue">${escapeHtml(p.netdiskType)}</span>` : ''}
+              <span class="tag">${escapeHtml(p.resourceType)}</span>
               ${p.type === 'demand' ? `
-                ${(p.netdiskPref || []).map(n => `<span class="tag tag-gray">${n}</span>`).join('')}
+                ${(p.netdiskPref || []).map(n => `<span class="tag tag-gray">${escapeHtml(n)}</span>`).join('')}
                 ${p.rewardPoint > 0 ? `<span class="reward-tag">🏆 ${p.rewardPoint}积分悬赏</span>` : ''}
               ` : ''}
               ${p.type === 'share' && p.unlockPoint > 0 ? `<span class="lock-tag">🔒 ${p.unlockPoint}积分解锁</span>` : ''}
+              ${person ? `<span class="tag tag-blue" style="cursor:pointer;" onclick="App.openPerson('${person.id}')">👤 ${escapeHtml(person.name)}</span>` : ''}
             </div>
           </div>
+          ${canEdit ? `
+            <button class="btn btn-secondary btn-sm" onclick="App.editPost('${p.id}')">
+              <i class="fas fa-pen"></i> 编辑
+            </button>
+          ` : ''}
         </div>
 
         <div style="font-size:0.8125rem;color:var(--color-text-muted);margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--color-border);">
-          发帖人：${p.userName} · ${timeAgo(p.createdAt)} · 状态：${getStatusLabel(p.status)}
+          发帖人：${renderNameWithLevel(p.userName, getLevelForUser(p.userId), { nameClass: '', size: 15 })} · ${timeAgo(p.createdAt)}
+          ${p.editedAt ? ` · 已编辑 ${timeAgo(p.editedAt)}` : ''}
+          · 状态：${getStatusLabel(p.status)}
+          ${isOwner ? '<span class="owner-badge">我的帖子</span>' : ''}
         </div>
 
-        <div style="line-height:1.8;color:var(--color-text-secondary);font-size:0.9375rem;margin-bottom:1.5rem;white-space:pre-wrap;">${p.content}</div>
+        <div style="line-height:1.8;color:var(--color-text-secondary);font-size:0.9375rem;margin-bottom:1.5rem;white-space:pre-wrap;">${escapeHtml(p.content)}</div>
+
+        ${images.length ? `
+          <div class="post-gallery">
+            ${images.map((src, i) => `
+              <a class="gallery-item" href="${escapeHtml(src)}" target="_blank" rel="noopener noreferrer">
+                <img src="${escapeHtml(src)}" alt="预览图 ${i + 1}" loading="lazy" onerror="this.parentNode.style.display='none'">
+              </a>
+            `).join('')}
+          </div>
+        ` : ''}
 
         ${p.type === 'share' ? `
           <div style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:1.25rem;">
             <h3 style="font-size:0.875rem;color:var(--color-text-muted);margin-bottom:1rem;">🔑 网盘信息</h3>
-            ${isUnlocked || p.unlockPoint === 0 ? `
+            ${canSeeLink ? `
               <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius-sm);padding:1rem;margin-bottom:0.75rem;">
-                <div style="font-size:0.75rem;color:var(--color-success);margin-bottom:0.5rem;">✓ 已解锁，查看网盘信息</div>
-                <div style="font-size:0.875rem;color:var(--color-text);word-break:break-all;">
-                  <div style="margin-bottom:0.5rem;"><span style="color:var(--color-text-muted);">网盘类型：</span>${p.netdiskType}</div>
-                  <div style="margin-bottom:0.5rem;"><span style="color:var(--color-text-muted);">下载链接：</span>${p.link}</div>
-                  ${p.extractCode ? `<div><span style="color:var(--color-text-muted);">提取码：</span><code style="background:var(--color-input);padding:0.125rem 0.375rem;border-radius:4px;">${p.extractCode}</code></div>` : ''}
+                <div style="font-size:0.75rem;color:var(--color-success);margin-bottom:0.5rem;">
+                  ${isOwner ? '✓ 这是你发布的帖子，无需积分即可查看' : isAdminUser ? '✓ 管理员权限，可直接查看' : '✓ 已解锁，查看网盘信息'}
                 </div>
-                <button class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" onclick="copyText('${p.link}')"><i class="fas fa-copy"></i> 复制链接</button>
+                <div style="font-size:0.875rem;color:var(--color-text);word-break:break-all;">
+                  <div style="margin-bottom:0.5rem;"><span style="color:var(--color-text-muted);">网盘类型：</span>${escapeHtml(p.netdiskType)}</div>
+                  <div style="margin-bottom:0.5rem;"><span style="color:var(--color-text-muted);">下载链接：</span>${escapeHtml(p.link)}</div>
+                  ${(p.extractCode || p.unzipCode) ? `
+                    <div class="post-codes">
+                      ${p.extractCode ? `<span class="post-code-item">提取码：<code>${escapeHtml(p.extractCode)}</code></span>` : ''}
+                      ${p.unzipCode ? `<span class="post-code-item">解压码：<code>${escapeHtml(p.unzipCode)}</code></span>` : ''}
+                    </div>` : ''}
+                </div>
+                <button class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" onclick="copyText('${String(p.link || '').replace(/'/g, "\\'")}')"><i class="fas fa-copy"></i> 复制链接</button>
               </div>
             ` : canUnlock ? `
               <div style="background:rgba(124,58,237,0.05);border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius-sm);padding:1rem;margin-bottom:0.75rem;">
@@ -962,6 +1697,8 @@ const App = (() => {
           </div>
         </div>
       ` : ''}
+
+      ${renderPostComments(p)}
       </div>
     `;
   }
@@ -986,6 +1723,126 @@ const App = (() => {
     }
   }
 
+  // ===== 邮箱：找回密码 / 绑定邮箱 =====
+  const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  let codeCooldownTimer = null;
+
+  function startCodeCooldown(btnId, seconds) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    let left = seconds || 60;
+    btn.disabled = true;
+    btn.textContent = left + ' 秒后重发';
+    if (codeCooldownTimer) clearInterval(codeCooldownTimer);
+    codeCooldownTimer = setInterval(() => {
+      left -= 1;
+      const b = document.getElementById(btnId);
+      if (!b) { clearInterval(codeCooldownTimer); codeCooldownTimer = null; return; }
+      if (left <= 0) {
+        clearInterval(codeCooldownTimer);
+        codeCooldownTimer = null;
+        b.disabled = false;
+        b.textContent = '获取验证码';
+      } else {
+        b.textContent = left + ' 秒后重发';
+      }
+    }, 1000);
+  }
+
+  async function sendEmailCode(inputId, purpose, btnId) {
+    const email = ((document.getElementById(inputId) || {}).value || '').trim();
+    if (!EMAIL_RX.test(email)) { toast('请输入正确的邮箱地址', 'warning'); return; }
+    const btn = document.getElementById(btnId);
+    if (btn) btn.disabled = true;
+    try {
+      await api('/api/auth/email/send-code', { method: 'POST', body: JSON.stringify({ email, purpose }) });
+      toast('验证码已发送，请查收邮箱（收不到看下垃圾箱）', 'success');
+      startCodeCooldown(btnId, 60);
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      toast(e.message, 'error');
+    }
+  }
+
+  function showResetPasswordModal() {
+    openModal(`
+      <div style="font-size:0.75rem;color:var(--color-text-muted);line-height:1.7;margin-bottom:1rem;">
+        仅支持已绑定邮箱的账号。验证码 10 分钟内有效，重置成功后其它设备的登录状态会自动失效。
+      </div>
+      <div class="form-group">
+        <label class="form-label">绑定邮箱</label>
+        <input class="form-input" id="rstEmail" placeholder="你在本站绑定的邮箱" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">验证码</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input class="form-input" id="rstCode" placeholder="6 位数字" inputmode="numeric" maxlength="6" style="flex:1;">
+          <button class="btn btn-secondary" id="rstSend" style="white-space:nowrap;" onclick="App.sendEmailCode('rstEmail','reset','rstSend')">获取验证码</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密码</label>
+        <input class="form-input" id="rstPwd" type="password" placeholder="至少 6 位" autocomplete="new-password">
+      </div>
+      <div style="font-size:0.75rem;color:var(--color-text-muted);display:flex;flex-direction:column;gap:0.4rem;">
+        <span>还没绑定邮箱？先用账号密码登录 → 个人中心 → 安全邮箱 → 立即绑定。</span>
+        <span>没有绑定邮箱且已忘记密码？<button style="background:none;border:none;color:var(--color-primary-light);cursor:pointer;padding:0;font-size:0.75rem;" onclick="App.showRequestResetModal()">申请管理员重置密码 →</button></span>
+      </div>
+    `, { title: '找回密码', width: 420, onConfirm: doResetPassword });
+  }
+
+  async function doResetPassword() {
+    const email = ((document.getElementById('rstEmail') || {}).value || '').trim();
+    const code = ((document.getElementById('rstCode') || {}).value || '').trim();
+    const pwd = (document.getElementById('rstPwd') || {}).value || '';
+    if (!email || !code || !pwd) { toast('请填写完整', 'warning'); return false; }
+    if (pwd.length < 6) { toast('新密码至少 6 位', 'warning'); return false; }
+    try {
+      const r = await api('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, code, password: pwd }) });
+      setToken(r.token);
+      await refresh();
+      render();
+      toast('密码已重置，已自动登录', 'success');
+      return true;
+    } catch (e) { toast(e.message, 'error'); return false; }
+  }
+
+  function showBindEmailModal() {
+    const cur = (CACHE.me && CACHE.me.email) || '';
+    openModal(`
+      <div style="font-size:0.75rem;color:var(--color-text-muted);line-height:1.7;margin-bottom:1rem;">
+        绑定后忘记密码可用邮箱自助找回，换设备也不用担心丢号。<br>
+        当前状态：<strong style="color:var(--color-text);">${cur || '未绑定'}</strong>
+      </div>
+      <div class="form-group">
+        <label class="form-label">邮箱地址</label>
+        <input class="form-input" id="bndEmail" placeholder="如 yourname@qq.com" value="${cur}" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">验证码</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input class="form-input" id="bndCode" placeholder="6 位数字" inputmode="numeric" maxlength="6" style="flex:1;">
+          <button class="btn btn-secondary" id="bndSend" style="white-space:nowrap;" onclick="App.sendEmailCode('bndEmail','bind','bndSend')">获取验证码</button>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--color-text-muted);">QQ、163、126、Gmail、Outlook 等常用邮箱都能收。</div>
+    `, { title: '安全邮箱', width: 420, onConfirm: doBindEmail });
+  }
+
+  async function doBindEmail() {
+    const email = ((document.getElementById('bndEmail') || {}).value || '').trim();
+    const code = ((document.getElementById('bndCode') || {}).value || '').trim();
+    if (!EMAIL_RX.test(email)) { toast('请输入正确的邮箱地址', 'warning'); return false; }
+    if (!code) { toast('请输入验证码', 'warning'); return false; }
+    try {
+      await api('/api/auth/bind-email', { method: 'POST', body: JSON.stringify({ email, code }) });
+      await loadMe();
+      render();
+      toast('邮箱绑定成功', 'success');
+      return true;
+    } catch (e) { toast(e.message, 'error'); return false; }
+  }
+
   // ===== 用户中心 =====
   function renderProfile() {
     const user = getCurrentUser();
@@ -998,6 +1855,7 @@ const App = (() => {
     `;
 
     const me = CACHE.me || {};
+    const userEmail = me.email || '';
     const points = me.points || { available: 0, frozen: 0, totalGain: 0 };
     const allPosts = me.myPosts || [];
     const logs = me.logs || [];
@@ -1009,7 +1867,7 @@ const App = (() => {
       <div class="profile-header">
         <div class="profile-avatar">${user.nickname ? user.nickname.charAt(0).toUpperCase() : 'U'}</div>
         <div class="profile-info">
-          <div class="profile-name">${user.nickname || '用户'}</div>
+          ${renderNameWithLevel(user.nickname || '用户', getCurrentUserLevel(), { nameClass: 'profile-name', size: 16 })}
           <div class="profile-id">ID: ${user.id}</div>
           <div class="profile-stats">
             <div class="profile-stat"><span class="profile-stat-value">${allPosts.length}</span><span class="profile-stat-label">我的投稿</span></div>
@@ -1027,6 +1885,30 @@ const App = (() => {
           <div class="point-stat"><div style="font-size:0.6875rem;color:var(--color-text-muted);">冻结中</div><div style="font-size:1rem;font-weight:700;color:var(--color-warning);">${points.frozen}</div></div>
           <div class="point-stat"><div style="font-size:0.6875rem;color:var(--color-text-muted);">累计获得</div><div style="font-size:1rem;font-weight:700;color:var(--color-point);">${points.totalGain}</div></div>
           <div class="point-stat"><div style="font-size:0.6875rem;color:var(--color-text-muted);">今日签到</div><div style="font-size:1rem;font-weight:700;color:${hasSignedToday() ? 'var(--color-success)' : 'var(--color-text-muted)'};">${hasSignedToday() ? '✓ 已签' : '未签'}</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <h3 style="font-size:0.875rem;font-weight:600;margin-bottom:0.35rem;">📮 安全邮箱</h3>
+            <div style="font-size:0.8125rem;color:${userEmail ? 'var(--color-text)' : 'var(--color-text-muted)'};">
+              ${userEmail || '未绑定 · 忘记密码将无法找回账号'}
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="App.showBindEmailModal()">${userEmail ? '更换邮箱' : '立即绑定'}</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <h3 style="font-size:0.875rem;font-weight:600;margin-bottom:0.35rem;">🔑 登录密码</h3>
+            <div style="font-size:0.8125rem;color:${(CACHE.me && CACHE.me.mustChangePwd) ? 'var(--color-warning)' : 'var(--color-text-muted)'};">
+              ${(CACHE.me && CACHE.me.mustChangePwd) ? '⚠️ 当前为默认重置密码，请立即修改' : '定期修改密码更安全'}
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="App.showChangePasswordModal(${(CACHE.me && CACHE.me.mustChangePwd) ? 'true' : 'false'})">修改密码</button>
         </div>
       </div>
 
@@ -1109,14 +1991,18 @@ const App = (() => {
       </div>
       <div class="form-group">
         <label class="form-label">账号</label>
-        <input class="form-input" id="loginUser" placeholder="请输入账号">
+        <input class="form-input" id="loginUser" placeholder="请输入账号" onblur="App.checkPwdReset()">
       </div>
       <div class="form-group">
         <label class="form-label">密码</label>
         <input class="form-input" id="loginPwd" type="password" placeholder="请输入密码">
+        <div id="pwdResetHint" style="display:none;margin-top:0.5rem;padding:0.5rem 0.75rem;border-radius:8px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.35);font-size:0.75rem;color:var(--color-primary-light);line-height:1.6;">
+          🔑 该账号密码已被管理员重置，默认密码为：<strong style="letter-spacing:1px;">a123456</strong>，登录后请及时修改。
+        </div>
       </div>
-      <div style="display:flex;gap:0.5rem;font-size:0.75rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;font-size:0.75rem;">
         <button style="background:none;border:none;color:var(--color-primary-light);cursor:pointer;padding:0;" onclick="document.getElementById('registerTab').style.display='block';document.querySelector('#modalContainer .modal-footer').style.display='none';document.getElementById('loginUser').value='';document.getElementById('loginPwd').value='';">没有账号？立即注册</button>
+        <button style="background:none;border:none;color:var(--color-text-muted);cursor:pointer;padding:0;" onclick="App.showResetPasswordModal()">忘记密码？</button>
       </div>
       <div id="registerTab" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--color-border);">
         <h4 style="font-size:0.875rem;font-weight:600;margin-bottom:0.75rem;">注册新账号</h4>
@@ -1158,9 +2044,90 @@ const App = (() => {
       closeModal();
       toast(`欢迎回来，${r.user.nickname}！`, 'success');
       render();
+      if (r.mustChangePwd) {
+        setTimeout(() => {
+          showChangePasswordModal(true);
+          toast('当前使用默认重置密码，请尽快修改', 'warning');
+        }, 400);
+      }
     } catch (e) {
       toast(e.message, 'error');
     }
+  }
+
+  // 登录页：账号输入后识别是否被管理员重置过密码
+  async function checkPwdReset() {
+    const hint = document.getElementById('pwdResetHint');
+    if (!hint) return;
+    const username = (document.getElementById('loginUser').value || '').trim();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) { hint.style.display = 'none'; return; }
+    try {
+      const r = await api(`/api/auth/pwd-status?username=${encodeURIComponent(username)}`);
+      hint.style.display = r.resetDefault ? 'block' : 'none';
+    } catch { hint.style.display = 'none'; }
+  }
+
+  // 申请管理员重置密码（未绑定邮箱的用户走这条路）
+  function showRequestResetModal() {
+    openModal(`
+      <div style="font-size:0.75rem;color:var(--color-text-muted);line-height:1.7;margin-bottom:1rem;">
+        提交申请后请等待管理员处理。处理完成后，你在登录页输入账号时，系统会提示默认重置密码，用它登录后再修改为自己的新密码。
+      </div>
+      <div class="form-group">
+        <label class="form-label">登录账号</label>
+        <input class="form-input" id="rqUser" placeholder="你的登录账号（非昵称）" autocomplete="username">
+      </div>
+      <div style="font-size:0.75rem;color:var(--color-text-muted);">同一账号 10 分钟内只能申请一次。</div>
+    `, { title: '申请重置密码', width: 420, onConfirm: doRequestReset });
+  }
+
+  async function doRequestReset() {
+    const username = ((document.getElementById('rqUser') || {}).value || '').trim();
+    if (!username) { toast('请输入登录账号', 'warning'); return false; }
+    try {
+      const r = await api('/api/auth/request-reset', { method: 'POST', body: JSON.stringify({ username }) });
+      toast(r.message || '申请已提交', 'success');
+      return true;
+    } catch (e) { toast(e.message, 'error'); return false; }
+  }
+
+  // 修改密码（默认密码登录后强制修改）
+  function showChangePasswordModal(forced) {
+    openModal(`
+      <div style="font-size:0.75rem;color:var(--color-text-muted);line-height:1.7;margin-bottom:1rem;">
+        ${forced
+          ? '⚠️ 你当前使用的是管理员重置的默认密码，为保障账号安全，请立即设置新密码。'
+          : '修改成功后需要重新登录，其它设备的登录状态也会同步失效。'}
+      </div>
+      <div class="form-group">
+        <label class="form-label">当前密码</label>
+        <input class="form-input" id="cpOld" type="password" placeholder="当前密码（默认密码 a123456）" autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密码</label>
+        <input class="form-input" id="cpNew" type="password" placeholder="至少 6 位，不能是 a123456" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">确认新密码</label>
+        <input class="form-input" id="cpNew2" type="password" placeholder="再输入一遍新密码" autocomplete="new-password">
+      </div>
+    `, { title: '修改密码', width: 420, onConfirm: doChangePassword, closeOnOverlay: false });
+  }
+
+  async function doChangePassword() {
+    const oldPwd = (document.getElementById('cpOld') || {}).value || '';
+    const newPwd = (document.getElementById('cpNew') || {}).value || '';
+    const newPwd2 = (document.getElementById('cpNew2') || {}).value || '';
+    if (!oldPwd || !newPwd || !newPwd2) { toast('请填写完整', 'warning'); return false; }
+    if (newPwd.length < 6) { toast('新密码至少 6 位', 'warning'); return false; }
+    if (newPwd !== newPwd2) { toast('两次输入的新密码不一致', 'warning'); return false; }
+    if (newPwd === 'a123456') { toast('新密码不能与默认重置密码相同', 'warning'); return false; }
+    try {
+      const r = await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: oldPwd, newPassword: newPwd }) });
+      toast(r.message || '密码修改成功', 'success');
+      logout();
+      return true;
+    } catch (e) { toast(e.message, 'error'); return false; }
   }
 
   async function doRegister() {
@@ -1196,13 +2163,19 @@ const App = (() => {
     openModal(`
       <div class="form-group">
         <label class="form-label">昵称</label>
-        <input class="form-input" id="editNickname" value="${user.nickname || ''}">
+        <input class="form-input" id="editNickname" value="${escapeHtml(user.nickname || '')}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">头像 URL</label>
+        <input class="form-input" id="editAvatar" value="${escapeHtml(user.avatar || '')}" placeholder="https://... 图片直链">
+        ${imgHint('选择匹配的头像')}
       </div>
     `, { title: '编辑资料', onConfirm: async () => {
       const nickname = document.getElementById('editNickname').value.trim();
+      const avatar = document.getElementById('editAvatar').value.trim();
       if (!nickname) { toast('昵称不能为空', 'warning'); return false; }
       try {
-        await api('/api/auth/profile', { method: 'PATCH', body: JSON.stringify({ nickname }) });
+        await api('/api/auth/profile', { method: 'PATCH', body: JSON.stringify({ nickname, avatar }) });
         await refresh();
         toast('资料已更新', 'success');
         render();
@@ -1215,10 +2188,119 @@ const App = (() => {
   }
 
   // ===== 投稿 =====
+  const IMG_HOST = 'https://img.scdn.io/';
+  function imgHint(text) {
+    return `<div class="form-hint">${text || '选择匹配的封面/头像'}，复制链接粘贴在此 → <a href="${IMG_HOST}" target="_blank" rel="noopener noreferrer">${IMG_HOST}</a></div>`;
+  }
+
+  // 投稿草稿：关联名录 / 预览图 / 封面
+  let draftPersonId = '';
+  let draftImages = [''];
+
+  function personOptionsHtml(kw) {
+    const q = String(kw || '').trim().toLowerCase();
+    const list = getDB('persons').filter(p =>
+      !q || [p.name, p.tag, p.bio].some(f => String(f || '').toLowerCase().includes(q))
+    ).slice(0, 8);
+    if (!list.length) return '<div class="person-option empty">没有匹配的名录</div>';
+    return list.map(p => `
+      <div class="person-option" onclick="App.pickPerson('${p.id}')">
+        <span class="person-option-avatar">${p.avatar ? `<img src="${escapeHtml(p.avatar)}" onerror="this.remove()">` : (p.name || '?').charAt(0)}</span>
+        <span class="person-option-name">${escapeHtml(p.name)}</span>
+        <span class="person-option-tag">${escapeHtml(p.tag || '')}</span>
+      </div>
+    `).join('');
+  }
+
+  function filterPersonOptions(kw) {
+    const box = document.getElementById('postPersonOptions');
+    if (!box) return;
+    box.innerHTML = personOptionsHtml(kw);
+    box.classList.add('show');
+  }
+
+  function pickPerson(id) {
+    const p = getDB('persons').find(x => x.id === id);
+    if (!p) return;
+    draftPersonId = id;
+    const sel = document.getElementById('personSelected');
+    const wrap = document.getElementById('personSearchWrap');
+    const box = document.getElementById('postPersonOptions');
+    if (sel) {
+      sel.style.display = 'flex';
+      sel.innerHTML = `
+        <span class="person-chip">
+          ${p.avatar ? `<img src="${escapeHtml(p.avatar)}" onerror="this.remove()">` : ''}
+          <b>${escapeHtml(p.name)}</b>
+          <span class="person-chip-tag">${escapeHtml(p.tag || '')}</span>
+          <button type="button" onclick="App.clearPerson()" aria-label="取消关联">×</button>
+        </span>`;
+    }
+    if (wrap) wrap.style.display = 'none';
+    if (box) { box.classList.remove('show'); box.innerHTML = ''; }
+  }
+
+  function clearPerson() {
+    draftPersonId = '';
+    const sel = document.getElementById('personSelected');
+    const wrap = document.getElementById('personSearchWrap');
+    const inp = document.getElementById('postPersonInput');
+    if (sel) { sel.style.display = 'none'; sel.innerHTML = ''; }
+    if (wrap) wrap.style.display = '';
+    if (inp) inp.value = '';
+  }
+
+  function renderDraftImages() {
+    const box = document.getElementById('postImagesBox');
+    if (!box) return;
+    box.innerHTML = draftImages.map((u, i) => `
+      <div class="img-row">
+        <div class="img-thumb ${u ? '' : 'empty'}">
+          ${u ? `<img src="${escapeHtml(u)}" onerror="this.parentNode.classList.add('bad');this.remove()">` : '<i class="fas fa-image"></i>'}
+        </div>
+        <input class="form-input" value="${escapeHtml(u)}" placeholder="https://... 图片直链" oninput="App.onDraftImageInput(${i}, this.value)">
+        <button type="button" class="img-del" title="删除" onclick="App.removeDraftImage(${i})">×</button>
+      </div>
+    `).join('') + `
+      <button type="button" class="btn btn-secondary btn-sm" onclick="App.addDraftImage()" ${draftImages.length >= 5 ? 'disabled' : ''}>
+        + 添加预览图（${draftImages.length}/5）
+      </button>`;
+  }
+
+  function onDraftImageInput(i, val) {
+    draftImages[i] = val;
+    const box = document.getElementById('postImagesBox');
+    const row = box && box.querySelectorAll('.img-row')[i];
+    if (!row) return;
+    const thumb = row.querySelector('.img-thumb');
+    thumb.classList.remove('bad', 'empty');
+    thumb.innerHTML = val.trim()
+      ? `<img src="${escapeHtml(val.trim())}" onerror="this.parentNode.classList.add('bad');this.remove()">`
+      : '<i class="fas fa-image"></i>';
+  }
+
+  function addDraftImage() {
+    if (draftImages.length >= 5) return;
+    draftImages.push('');
+    renderDraftImages();
+  }
+
+  function removeDraftImage(i) {
+    draftImages.splice(i, 1);
+    if (!draftImages.length) draftImages = [''];
+    renderDraftImages();
+  }
+
+  function collectImages() {
+    return draftImages.map(s => String(s || '').trim()).filter(s => /^https?:\/\//i.test(s)).slice(0, 5);
+  }
+
   function showSubmitModal(defaultType = '') {
     const user = getCurrentUser();
     if (!user) { showLoginModal(); return; }
 
+    draftPersonId = '';
+    draftImages = [''];
     const cats = getDB('categories');
     const modal = openModal(`
       <div style="display:flex;gap:0.25rem;margin-bottom:1rem;background:var(--color-card);padding:0.25rem;border-radius:var(--radius-sm);">
@@ -1259,30 +2341,40 @@ const App = (() => {
           <label class="form-label">资源名称<span class="required">*</span></label>
           <input class="form-input" id="shareTitle" placeholder="例如：XX设计素材包完整版">
         </div>
-        <div class="form-group">
-          <label class="form-label">网盘类型<span class="required">*</span></label>
-          <select class="form-select" id="shareNetdisk">
-            ${cats.netdiskTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
-          </select>
+        <div class="form-row form-row-wide-right">
+          <div class="form-group">
+            <label class="form-label">网盘类型<span class="required">*</span></label>
+            <select class="form-select" id="shareNetdisk">
+              ${cats.netdiskTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">网盘链接<span class="required">*</span></label>
+            <input class="form-input" id="shareLink" placeholder="https://pan.baidu.com/s/...">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">网盘链接<span class="required">*</span></label>
-          <input class="form-input" id="shareLink" placeholder="https://pan.baidu.com/s/...">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">提取码</label>
+            <input class="form-input" id="shareExtract" placeholder="如有则填">
+          </div>
+          <div class="form-group">
+            <label class="form-label">解压码 <span class="form-optional">可选</span></label>
+            <input class="form-input" id="shareUnpack" placeholder="压缩包解压密码，如有则填">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">提取码</label>
-          <input class="form-input" id="shareExtract" placeholder="如有则填">
-        </div>
-        <div class="form-group">
-          <label class="form-label">资源类型</label>
-          <select class="form-select" id="shareType">
-            ${cats.resourceTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">查看所需积分</label>
-          <input class="form-input" id="shareUnlock" type="number" min="0" max="5000" value="0">
-          <div class="form-hint">0 = 免费公开；>0 时他人消耗积分解锁；上限 5000</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">资源类型</label>
+            <select class="form-select" id="shareType">
+              ${cats.resourceTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">查看所需积分</label>
+            <input class="form-input" id="shareUnlock" type="number" min="0" max="5000" value="0">
+            <div class="form-hint">0 = 免费公开；>0 时他人消耗积分解锁；上限 5000</div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">资源介绍<span class="required">*</span></label>
@@ -1306,6 +2398,14 @@ const App = (() => {
     if (!user) { showLoginModal(); return false; }
     const points = getUserPoints();
 
+    const images = collectImages();
+    if (images.length > 5) { toast('预览图最多 5 张', 'warning'); return false; }
+    const cover = ((document.getElementById('postCover') || {}).value || '').trim();
+    if (cover && !/^https?:\/\//i.test(cover)) { toast('封面图请填写图片直链（http/https）', 'warning'); return false; }
+    const thumb = ((document.getElementById('postThumb') || {}).value || '').trim();
+    if (thumb && !/^https?:\/\//i.test(thumb)) { toast('列表缩略图请填写图片直链（http/https）', 'warning'); return false; }
+    const personId = draftPersonId;
+
     if (type === 'demand') {
       const title = document.getElementById('demandTitle').value.trim();
       const resourceType = document.getElementById('demandType').value;
@@ -1320,7 +2420,7 @@ const App = (() => {
 
       try {
         await api('/api/posts', { method: 'POST', body: JSON.stringify({
-          type: 'demand', title, content, resourceType, netdiskPref, rewardPoint
+          type: 'demand', title, content, resourceType, netdiskPref, rewardPoint, personId, images, cover, thumb
         }) });
       } catch (e) {
         toast(e.message, 'error');
@@ -1333,6 +2433,7 @@ const App = (() => {
       const netdiskType = document.getElementById('shareNetdisk').value;
       const link = document.getElementById('shareLink').value.trim();
       const extractCode = document.getElementById('shareExtract').value.trim();
+      const unzipCode = document.getElementById('shareUnpack').value.trim();
       const resourceType = document.getElementById('shareType').value;
       const unlockPoint = parseInt(document.getElementById('shareUnlock').value) || 0;
       const content = document.getElementById('shareContent').value.trim();
@@ -1343,7 +2444,7 @@ const App = (() => {
 
       try {
         await api('/api/posts', { method: 'POST', body: JSON.stringify({
-          type: 'share', title, content, resourceType, netdiskType, link, extractCode, unlockPoint
+          type: 'share', title, content, resourceType, netdiskType, link, extractCode, unzipCode, unlockPoint, personId, images, cover, thumb
         }) });
       } catch (e) {
         toast(e.message, 'error');
@@ -1355,6 +2456,135 @@ const App = (() => {
 
     render();
     return true;
+  }
+
+  /* 作者编辑帖子：保存后重新进入待审核 */
+  async function editPost(id) {
+    const user = getCurrentUser();
+    if (!user) { showLoginModal(); return; }
+    const local = getDB('posts').find(x => x.id === id);
+    let p = local || (CACHE.postDetail && CACHE.postDetail.id === id ? CACHE.postDetail : null);
+    if (!p) {
+      try { p = await api(`/api/posts/${encodeURIComponent(id)}`); } catch { toast('帖子不存在', 'error'); return; }
+    }
+    if (p.userId !== user.id && user.role !== 'admin') { toast('只能编辑自己的帖子', 'warning'); return; }
+
+    const cats = getDB('categories');
+    const isShare = p.type === 'share';
+    draftPersonId = p.personId || '';
+    draftImages = (Array.isArray(p.images) && p.images.length ? p.images.slice(0, 5) : ['']);
+
+    const modal = openModal(`
+      <div class="form-group">
+        <label class="form-label">标题<span class="required">*</span></label>
+        <input class="form-input" id="editTitle" value="${escapeHtml(p.title || '')}">
+      </div>
+      ${isShare ? `
+        <div class="form-row form-row-wide-right">
+          <div class="form-group">
+            <label class="form-label">网盘类型</label>
+            <select class="form-select" id="editNetdisk">
+              ${cats.netdiskTypes.map(t => `<option value="${t}" ${t === p.netdiskType ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">网盘链接<span class="required">*</span></label>
+            <input class="form-input" id="editLink" value="${escapeHtml(p.link || '')}">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">提取码</label>
+            <input class="form-input" id="editExtract" value="${escapeHtml(p.extractCode || '')}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">解压码 <span class="form-optional">可选</span></label>
+            <input class="form-input" id="editUnpack" value="${escapeHtml(p.unzipCode || '')}" placeholder="压缩包解压密码">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">查看所需积分</label>
+          <input class="form-input" id="editUnlock" type="number" min="0" max="5000" value="${p.unlockPoint || 0}">
+        </div>
+      ` : ''}
+      <div class="form-group">
+        <label class="form-label">内容<span class="required">*</span></label>
+        <textarea class="form-textarea" id="editContent" rows="5">${escapeHtml(p.content || '')}</textarea>
+      </div>
+
+      <div class="form-divider"><span>关联与配图</span></div>
+
+      <div class="form-group">
+        <label class="form-label">关联名录 <span class="form-optional">可选</span></label>
+        <div id="personSearchWrap">
+          <input class="form-input" id="postPersonInput" placeholder="搜索站内人物姓名 / 标签" autocomplete="off"
+            oninput="App.filterPersonOptions(this.value)" onfocus="App.filterPersonOptions(this.value)">
+          <div class="person-options" id="postPersonOptions"></div>
+        </div>
+        <div class="person-selected" id="personSelected" style="display:none;"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">封面图 <span class="form-optional">可选</span></label>
+        <input class="form-input" id="postCover" value="${escapeHtml(p.cover || '')}" placeholder="https://... 图片直链">
+        ${imgHint('选择匹配的封面')}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">列表缩略图 <span class="form-optional">可选</span></label>
+        <input class="form-input" id="postThumb" value="${escapeHtml(p.thumb || '')}" placeholder="${escapeHtml(defaultThumb())}">
+        <div class="form-hint">论坛列表左侧展示的方图，留空则使用默认缩略图；与封面图相互独立 → <a href="${IMG_HOST}" target="_blank" rel="noopener noreferrer">${IMG_HOST}</a></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">预览图 <span class="form-optional">1-5 张</span></label>
+        <div class="img-list" id="postImagesBox"></div>
+        ${imgHint('选择匹配的封面图')}
+      </div>
+      <div class="form-hint" style="color:var(--color-warning);">
+        <i class="fas fa-info-circle"></i> 修改保存后会重新进入审核，通过前不会在论坛展示。
+      </div>
+    `, {
+      title: '编辑帖子', width: 720, closeOnOverlay: false,
+      onConfirm: async () => {
+        const title = document.getElementById('editTitle').value.trim();
+        const content = document.getElementById('editContent').value.trim();
+        if (!title || !content) { toast('标题和内容不能为空', 'warning'); return false; }
+
+        const body = {
+          title, content,
+          personId: draftPersonId,
+          images: collectImages(),
+          cover: (document.getElementById('postCover').value || '').trim(),
+          thumb: (document.getElementById('postThumb').value || '').trim(),
+        };
+        if (body.thumb && !/^https?:\/\//i.test(body.thumb)) { toast('列表缩略图请填写图片直链（http/https）', 'warning'); return false; }
+        if (isShare) {
+          body.netdiskType = document.getElementById('editNetdisk').value;
+          body.link = document.getElementById('editLink').value.trim();
+          body.extractCode = document.getElementById('editExtract').value.trim();
+          body.unzipCode = document.getElementById('editUnpack').value.trim();
+          body.unlockPoint = parseInt(document.getElementById('editUnlock').value, 10) || 0;
+          if (!body.link || !/^https?:\/\//.test(body.link)) { toast('请填写有效的网盘链接', 'warning'); return false; }
+        }
+
+        try {
+          await api(`/api/posts/${encodeURIComponent(p.id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+        } catch (e) {
+          toast(e.message, 'error');
+          return false;
+        }
+        await refresh();
+        CACHE.postDetail = await api(`/api/posts/${encodeURIComponent(p.id)}`).catch(() => null);
+        toast('已提交修改，等待管理员审核', 'success');
+        render();
+        return true;
+      },
+    });
+
+    renderDraftImages();
+    if (draftPersonId) pickPerson(draftPersonId);
+    return modal;
   }
 
   function showWorkSubmitModal(personId) {
@@ -1382,6 +2612,11 @@ const App = (() => {
         <input class="form-input" id="workExtract" placeholder="如有则填">
       </div>
       <div class="form-group">
+        <label class="form-label">封面图 <span class="form-optional">可选</span></label>
+        <input class="form-input" id="workCover" placeholder="https://... 图片直链">
+        ${imgHint('选择匹配的封面')}
+      </div>
+      <div class="form-group">
         <label class="form-label">作品简介</label>
         <textarea class="form-textarea" id="workContent" placeholder="作品简介、版本、画质等"></textarea>
       </div>
@@ -1391,12 +2626,13 @@ const App = (() => {
       const link = document.getElementById('workLink').value.trim();
       const extractCode = document.getElementById('workExtract').value.trim();
       const content = document.getElementById('workContent').value.trim();
+      const cover = document.getElementById('workCover').value.trim();
 
       if (!title || !link) { toast('请填写完整', 'warning'); return false; }
 
       try {
         await api('/api/works', { method: 'POST', body: JSON.stringify({
-          personId, title, netdiskType, link, extractCode, content
+          personId, title, netdiskType, link, extractCode, content, cover
         }) });
       } catch (e) {
         toast(e.message, 'error');
@@ -1690,6 +2926,8 @@ const App = (() => {
     try {
       await loadBootstrap();
       if (getToken()) await loadMe();
+      await loadLbPreview();
+      loadUserLevels().then(() => { render(); renderNav(); });
     } catch (e) {
       console.error(e);
       toast('数据加载失败，请稍后刷新页面', 'error');
@@ -1704,10 +2942,15 @@ const App = (() => {
   }
 
   const publicAPI = {
-    init, render, navigate, renderNav, toggleMobileMenu, handleSearch,
+    init, render, navigate, renderNav, toggleMobileMenu, handleSearch, searchNow,
     showLoginModal, doLogin, doRegister, logout, showEditProfile,
-    showSubmitModal, switchSubmitTab, showWorkSubmitModal,
-    openArticle, openPost, openPerson, unlockPost, doSignin,
+    showBindEmailModal, showResetPasswordModal, sendEmailCode,
+    checkPwdReset, showRequestResetModal, showChangePasswordModal,
+    showSubmitModal, switchSubmitTab, switchForumTab, showWorkSubmitModal,
+    filterPersonOptions, pickPerson, clearPerson, addDraftImage, removeDraftImage, onDraftImageInput,
+    openArticle, openPost, openPerson, openWork, unlockPost, doSignin, editPost,
+    postArticleComment, mentionAdmin, loadPostComments,
+    openCheckin, goCheckinPage, openFeatured, goFeaturedPage,
     postComment, unlockArticle, copyText,
     showRule, showDisclaimer, showPrivacy, showReport, toggleUserMenu, toggleTheme
   };

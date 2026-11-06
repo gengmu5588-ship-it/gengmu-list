@@ -11,7 +11,42 @@
     --bg:#0b0a12; --panel:#14111f; --panel-2:#1a1626; --line:rgba(139,92,246,.18);
     --primary:#8b5cf6; --primary-2:#a78bfa; --text:#ece9f7; --muted:#9b95b3;
     --green:#34d399; --amber:#fbbf24; --red:#f87171; --radius:14px;
+    color-scheme: dark;
   }
+  /* ===== 亮色（白色）主题 ===== */
+  html[data-theme="light"]{
+    --bg:#f6f6fb; --panel:#ffffff; --panel-2:#f5f4fb; --line:rgba(109,40,217,.16);
+    --primary:#7c3aed; --primary-2:#6d28d9; --text:#17131f; --muted:#6b6680;
+    --green:#059669; --amber:#b45309; --red:#dc2626;
+    color-scheme: light;
+  }
+  html[data-theme="light"] .login-wrap{
+    background:radial-gradient(1200px 600px at 20% 0%,rgba(139,92,246,.10),transparent 60%),var(--bg);
+  }
+  html[data-theme="light"] .login-card{box-shadow:0 20px 50px rgba(23,19,31,.12)}
+  html[data-theme="light"] .side nav a.on{color:var(--primary)}
+  html[data-theme="light"] .tabs button.on{color:var(--primary)}
+  html[data-theme="light"] .table th{background:rgba(23,19,31,.03)}
+  html[data-theme="light"] .table td{border-bottom-color:rgba(23,19,31,.06)}
+  html[data-theme="light"] .mask{background:rgba(23,19,31,.42)}
+  html[data-theme="light"] .modal{box-shadow:0 24px 60px rgba(23,19,31,.18)}
+  html[data-theme="light"] .modal-x:hover{color:var(--text);border-color:#d2cfe3;background:rgba(23,19,31,.05)}
+  html[data-theme="light"] .tag-gray{background:rgba(23,19,31,.05);border-color:rgba(23,19,31,.1)}
+  html[data-theme="light"] .tag-green{background:rgba(5,150,105,.1);color:#047857;border-color:rgba(5,150,105,.28)}
+  html[data-theme="light"] .tag-amber{background:rgba(180,83,9,.1);color:#b45309;border-color:rgba(180,83,9,.28)}
+  html[data-theme="light"] .tag-red{background:rgba(220,38,38,.1);color:#b91c1c;border-color:rgba(220,38,38,.26)}
+  html[data-theme="light"] .tag-violet{background:rgba(124,58,237,.1);color:#6d28d9;border-color:rgba(124,58,237,.28)}
+  html[data-theme="light"] .btn-danger{color:#b91c1c}
+  html[data-theme="light"] .btn-ok{color:#047857}
+  html[data-theme="light"] .notice{color:#b45309}
+  html[data-theme="light"] .toast{background:#1f1b2e;box-shadow:0 12px 30px rgba(23,19,31,.22)}
+  /* 主题切换按钮 */
+  .theme-sw{display:inline-flex;align-items:center;gap:6px;color:var(--muted);cursor:pointer;user-select:none}
+  .theme-sw:hover{color:var(--primary-2)}
+  .theme-sw-float{position:fixed;right:18px;top:18px;z-index:50;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:12px;color:var(--muted);
+    cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.18s}
+  .theme-sw-float:hover{color:var(--primary-2);border-color:var(--primary)}
   *{box-sizing:border-box;margin:0;padding:0}
   body{
     background:var(--bg); color:var(--text); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
@@ -37,7 +72,7 @@
   .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:10px;
     padding:9px 16px;cursor:pointer;font-weight:600;transition:.18s;background:var(--panel-2);color:var(--text)}
   .btn:hover{transform:translateY(-1px)}
-  .btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);border-color:rgba(255,255,255,.12)}
+  .btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);border-color:rgba(255,255,255,.12);color:#fff}
   .btn-primary:hover{box-shadow:0 8px 24px rgba(139,92,246,.35)}
   .btn-ghost{border-color:var(--line);background:transparent}
   .btn-danger{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.35);color:#fca5a5}
@@ -119,6 +154,16 @@
     .main{padding:18px 16px 48px}
     .table{display:block;overflow-x:auto;white-space:nowrap}
   }
+
+    .at-mark {
+      background: rgba(245, 158, 11, 0.18);
+      color: #fbbf24;
+      border-radius: 4px;
+      padding: 0 3px;
+      font-weight: 600;
+    }
+    .comment-text { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+    table .sub + .tag, table .tag + .sub { margin-left: 6px; }
 </style>
 </head>
 <body>
@@ -131,7 +176,7 @@ const Admin = (() => {
   const fmt = t => t ? new Date(t).toLocaleString('zh-CN', { hour12: false }) : '-';
 
   let state = {
-    nav: 'overview', postTab: 'all',
+    nav: 'overview', postTab: 'all', commentTab: 'at',
     data: { articles: [], posts: [], persons: [], works: [], banner: [], categories: { resourceTypes: [], netdiskTypes: [], personTags: [] }, users: [], logs: [], stats: {} }
   };
   let lastQuery = '';
@@ -181,6 +226,7 @@ const Admin = (() => {
   function renderLogin(msg) {
     document.getElementById('app').innerHTML = `
       <div class="login-wrap">
+        <button class="theme-sw-float" onclick="Admin.toggleTheme()"><span data-theme-icon>🌙</span><span data-theme-label>亮色模式</span></button>
         <div class="login-card">
           <div class="logo-row"><img src="/assets/img/logo.svg" alt="视觉社" width="40" height="40" style="border-radius:12px"><div><h1>视觉社 · 管理后台</h1></div></div>
           <p>请输入管理员账号密码（默认 admin / 123456）</p>
@@ -215,6 +261,7 @@ const Admin = (() => {
     };
     document.getElementById('lg-btn').onclick = doLogin;
     document.getElementById('lg-pwd').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+    syncTheme();
   }
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
@@ -226,8 +273,10 @@ const Admin = (() => {
   const NAV = [
     ['overview', '📊', '数据概览'],
     ['posts', '📝', '帖子审核'],
+    ['comments', '💬', '帖子留言'],
     ['persons', '👤', '姬查查人物'],
     ['works', '🎬', '作品管理'],
+    ['users', '👥', '用户管理'],
     ['points', '💰', '积分管理'],
     ['articles', '📌', '站长推荐'],
     ['banner', '🖼️', 'Banner'],
@@ -248,6 +297,7 @@ const Admin = (() => {
           </div>
           <nav>${nav}</nav>
           <div class="side-foot">
+            <a class="theme-sw" onclick="Admin.toggleTheme()"><span data-theme-icon>🌙</span><span data-theme-label>亮色模式</span></a>
             <a href="../index.html">← 返回前台</a>
             <a onclick="Admin.logout()">退出登录</a>
           </div>
@@ -260,6 +310,20 @@ const Admin = (() => {
           ${content}
         </main>
       </div>`;
+    syncTheme();
+  }
+
+  /* ===== 黑白主题 ===== */
+  function syncTheme() {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    document.querySelectorAll('[data-theme-icon]').forEach(el => { el.textContent = light ? '🌙' : '☀️'; });
+    document.querySelectorAll('[data-theme-label]').forEach(el => { el.textContent = light ? '暗色模式' : '亮色模式'; });
+  }
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('vs-admin-theme', next); } catch (e) {}
+    syncTheme();
   }
 
   async function go(k) {
@@ -273,9 +337,9 @@ const Admin = (() => {
       toast(msg || '数据加载失败');
     }
     const map = {
-      overview: renderOverview, posts: renderPosts, persons: renderPersons, works: renderWorks,
-      points: renderPoints, articles: renderArticles, banner: renderBanner,
-      categories: renderCategories, backup: renderBackup
+      overview: renderOverview, posts: renderPosts, comments: renderComments, persons: renderPersons,
+      works: renderWorks, users: renderUsers, points: renderPoints, articles: renderArticles,
+      banner: renderBanner, categories: renderCategories, backup: renderBackup
     };
     shell(k, (map[k] || renderOverview)());
   }
@@ -308,6 +372,8 @@ const Admin = (() => {
                   <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('posts')">去审核</button></td></tr>
               <tr><td>待审核作品</td><td><span class="tag ${pendingWorks ? 'tag-amber' : 'tag-gray'}">${pendingWorks}</span></td>
                   <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('works')">去审核</button></td></tr>
+              <tr><td>评论区 @管理员（未处理）</td><td><span class="tag ${(get('stats').pendingMentions || 0) ? 'tag-red' : 'tag-gray'}">${get('stats').pendingMentions || 0}</span></td>
+                  <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('comments')">去处理</button></td></tr>
               <tr><td>未结单悬赏</td><td><span class="tag ${openRewards.length ? 'tag-violet' : 'tag-gray'}">${openRewards.length}</span></td>
                   <td class="cell-actions"><button class="btn btn-sm btn-ghost" onclick="Admin.go('posts')">去处理</button></td></tr>
             </tbody>
@@ -383,6 +449,74 @@ const Admin = (() => {
           <tbody>${rows}</tbody></table>` : '<div class="empty">暂无帖子</div>'}
       </div></div>`;
   }
+  /* ===== 帖子留言（@管理员） ===== */
+  function renderComments() {
+    const all = get('postComments') || [];
+    const tab = state.commentTab || 'at';
+    let list = all;
+    if (tab === 'at') list = all.filter(c => c.mentionAdmin && !c.mentionHandled);
+    else if (tab === 'done') list = all.filter(c => c.mentionAdmin && c.mentionHandled);
+
+    const tabs = [
+      ['at', `@管理员 未处理 ${all.filter(c => c.mentionAdmin && !c.mentionHandled).length}`],
+      ['all', `全部留言 ${all.length}`],
+      ['done', '已处理'],
+    ].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" onclick="Admin.setCommentTab('${k}')">${l}</button>`).join('');
+
+    const rows = list.map(c => {
+      const content = esc(c.content).replace(/@\s*(管理员|admin)/gi, m => `<mark class="at-mark">${m}</mark>`);
+      const typeTag = c.postType === 'demand' ? '悬赏区' : '资源区';
+      return `<tr>
+        <td><span class="sub">${fmt(c.createdAt)}</span></td>
+        <td><span class="t">${esc(c.userName || c.userId)}</span></td>
+        <td style="max-width:520px"><div class="comment-text">${content}</div></td>
+        <td>${c.mentionAdmin
+          ? (c.mentionHandled
+            ? '<span class="tag tag-gray">已处理</span>'
+            : '<span class="tag tag-amber">🔔 @管理员</span>')
+          : '<span class="sub">-</span>'}</td>
+        <td><span class="tag tag-gray">${typeTag}</span><span class="sub">${esc(c.postTitle || '（帖子已删除）')}</span></td>
+        <td><div class="cell-actions">
+          ${c.mentionAdmin && !c.mentionHandled ? `<button class="btn btn-sm btn-ok" onclick="Admin.handleMention('${c.id}')">标记已处理</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="Admin.delPostComment('${c.id}')">删除</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
+        <div class="tabs">${tabs}</div>
+        <div class="actions"><span class="sub">共 ${list.length} 条</span></div>
+      </div>
+      <div class="panel"><div class="table-wrap">
+        ${list.length ? `<table class="table">
+          <thead><tr><th>时间</th><th>用户</th><th>留言内容</th><th>@ 标记</th><th>所属帖子</th><th>操作</th></tr></thead>
+          <tbody>${rows}</tbody></table>` : '<div class="empty">暂无留言</div>'}
+      </div></div>`;
+  }
+
+  async function setCommentTab(k) {
+    state.commentTab = k;
+    shell('comments', renderComments());
+  }
+
+  async function handleMention(id) {
+    try {
+      await api(`/api/admin/post-comments/${id}/handle`, { method: 'POST', body: '{}' });
+      toast('已标记处理');
+      go('comments');
+    } catch (e) { toast(e.message); }
+  }
+
+  async function delPostComment(id) {
+    if (!confirm('确认删除这条留言？')) return;
+    try {
+      await api(`/api/admin/post-comments/${id}`, { method: 'DELETE' });
+      toast('已删除');
+      go('comments');
+    } catch (e) { toast(e.message); }
+  }
+
   async function setStatus(id, status) {
     try {
       await api(`/api/admin/posts/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
@@ -585,6 +719,116 @@ const Admin = (() => {
   }
 
   /* ===== 积分 ===== */
+  /* ===== 用户管理 ===== */
+  let usersQuery = '';
+  function renderUsers() {
+    loadUsersPanel();
+    return `
+      <div class="panel" style="margin-bottom:18px" id="resetReqPanel">
+        <div class="panel-head"><h2>📮 重置密码申请</h2></div>
+        <div class="empty">加载中…</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>👥 全部用户</h2>
+          <div class="actions">
+            <input id="usersQuery" placeholder="搜索账号 / 昵称" value="${esc(usersQuery)}"
+              style="background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:7px 12px;border-radius:9px;font-size:12.5px;width:200px"
+              oninput="Admin.searchUsers(this.value)">
+          </div>
+        </div>
+        <div id="usersTableWrap"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="hint" style="margin-top:10px">点击「重置密码」会把该用户密码改为默认密码 <b>a123456</b>，用户在登录页输入账号后会看到提示，登录后需修改。重置会使其已登录设备全部下线。</div>`;
+  }
+  async function loadUsersPanel() {
+    try {
+      const r = await api('/api/admin/users');
+      usersData = r;
+      drawResetReqs(r.pendingRequests || []);
+      drawUsersTable();
+    } catch (e) {
+      toast(e.message || '加载失败');
+    }
+  }
+  let usersData = { users: [], pendingRequests: [] };
+  function drawResetReqs(list) {
+    const el = document.getElementById('resetReqPanel');
+    if (!el) return;
+    if (!list.length) {
+      el.innerHTML = `<div class="panel-head"><h2>📮 重置密码申请</h2></div><div class="empty">暂无待处理申请</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="panel-head"><h2>📮 重置密码申请 <span class="tag tag-amber">${list.length} 条待处理</span></h2></div>
+      <table class="table">
+        <thead><tr><th>账号</th><th>昵称</th><th>申请时间</th><th>操作</th></tr></thead>
+        <tbody>${list.map(q => `<tr>
+          <td><b>${esc(q.username)}</b></td>
+          <td>${esc(q.nickname)}</td>
+          <td>${fmt(q.createdAt)}</td>
+          <td class="cell-actions">
+            <button class="btn btn-sm btn-ok" onclick="Admin.adminResetPwd('${q.userId}', '${esc(q.username)}', true)">重置密码</button>
+            <button class="btn btn-sm btn-danger" onclick="Admin.rejectReset('${q.id}')">驳回</button>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }
+  function drawUsersTable() {
+    const el = document.getElementById('usersTableWrap');
+    if (!el) return;
+    const q = usersQuery.trim().toLowerCase();
+    let list = usersData.users || [];
+    if (q) list = list.filter(u => (u.username || '').toLowerCase().includes(q) || (u.nickname || '').toLowerCase().includes(q));
+    if (!list.length) { el.innerHTML = '<div class="empty">没有匹配的用户</div>'; return; }
+    el.innerHTML = `<table class="table">
+      <thead><tr><th>账号</th><th>昵称</th><th>角色</th><th>绑定邮箱</th><th>可用积分</th><th>投稿</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+      <tbody>${list.map(u => `<tr>
+        <td><b>${esc(u.username)}</b>${u.pendingRequest ? ' <span class="tag tag-amber">申请重置</span>' : ''}</td>
+        <td>${esc(u.nickname)}</td>
+        <td><span class="tag ${u.role === 'admin' ? 'tag-violet' : 'tag-gray'}">${u.role === 'admin' ? '管理员' : '用户'}</span></td>
+        <td>${u.email ? `<span class="t">${esc(u.email)}</span>` : '<span class="tag tag-gray">未绑定</span>'}</td>
+        <td>${u.available}</td>
+        <td>${u.postCount}</td>
+        <td>${u.mustChangePwd ? '<span class="tag tag-red">待改密</span>' : '<span class="tag tag-green">正常</span>'}</td>
+        <td>${fmt(u.createdAt)}</td>
+        <td class="cell-actions">
+          ${u.role === 'admin' ? '<span class="hint">-</span>' : `<button class="btn btn-sm btn-ghost" onclick="Admin.adminResetPwd('${u.id}', '${esc(u.username)}', false)">重置密码</button>`}
+        </td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+  function searchUsers(v) {
+    usersQuery = v;
+    drawUsersTable();
+  }
+  function adminResetPwd(targetId, username, isRequest) {
+    openModal('重置密码确认', `
+      <p style="font-size:13.5px;line-height:1.9;color:var(--text)">
+        确认将用户 <b>${esc(username)}</b> 的密码重置为默认密码 <b style="color:#c4b5fd">a123456</b> 吗？
+      </p>
+      <ul style="font-size:12.5px;color:var(--muted);line-height:2;padding-left:18px;margin:8px 0 0">
+        <li>该用户在登录页输入账号后，会看到默认密码提示</li>
+        <li>用默认密码登录后，会被要求立即修改为新密码</li>
+        <li>该用户当前已登录的设备会全部下线</li>
+        ${isRequest ? '<li>此操作会同时完成该用户提交的重置申请</li>' : ''}
+      </ul>`, async () => {
+      try {
+        const r = await api(`/api/admin/users/${targetId}/reset-pwd`, { method: 'POST' });
+        toast(r.message || '已重置');
+        closeModal();
+        loadUsersPanel();
+      } catch (e) { toast(e.message || '操作失败'); }
+    });
+  }
+  async function rejectReset(rid) {
+    try {
+      await api(`/api/admin/reset-requests/${rid}/reject`, { method: 'POST' });
+      toast('已驳回');
+      loadUsersPanel();
+    } catch (e) { toast(e.message || '操作失败'); }
+  }
+
   function renderPoints(q) {
     const query = q !== undefined ? q : lastQuery;
     const users = get('users');
@@ -655,7 +899,9 @@ const Admin = (() => {
       <td style="width:72px">${a.cover ? `<img src="${esc(a.cover)}" alt="" style="width:60px;height:36px;border-radius:8px;object-fit:cover">` : '<span class="tag tag-gray">无封面</span>'}</td>
       <td><span class="t">${esc(a.title)}</span><span class="sub">${esc(a.excerpt || '')}</span></td>
       <td>${a.pinned ? '<span class="tag tag-amber">置顶</span>' : '<span class="tag tag-gray">普通</span>'}</td>
-      <td>${a.drivePoint > 0 ? `<span class="tag tag-violet">🔒 ${a.drivePoint}积分</span>` : (a.driveLink ? '<span class="tag tag-green">网盘免费</span>' : '<span class="tag tag-gray">无网盘</span>')}</td>
+      <td>${a.relatedPostId
+        ? '<span class="tag tag-amber">🔗 跳转帖子解锁</span>'
+        : (a.drivePoint > 0 ? `<span class="tag tag-violet">🔒 ${a.drivePoint}积分</span>` : (a.driveLink ? '<span class="tag tag-green">网盘免费</span>' : '<span class="tag tag-gray">无网盘</span>'))}</td>
       <td>${a.views || 0}</td>
       <td><span class="sub">${fmt(a.createdAt)}</span></td>
       <td><div class="cell-actions">
@@ -669,7 +915,7 @@ const Admin = (() => {
       <td>${esc(c.userName || c.userId || '-')}</td>
       <td><span class="t" title="${esc(c.content)}">${esc(c.content)}</span></td>
       <td><span class="sub">${fmt(c.createdAt)}</span></td>
-      <td><div class="cell-actions"><button class="btn btn-sm btn-danger" onclick="Admin.delComment('${c.id}')">删除</button></div></td>
+      <td><div class="cell-actions"><button class="btn btn-sm btn-danger" onclick="Admin.delPostComment('${c.id}')">删除</button></div></td>
     </tr>`).join('');
     return `
       <div class="panel-head" style="border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;background:var(--panel)">
@@ -721,10 +967,23 @@ const Admin = (() => {
       driveType: p.netdiskType || '',
       driveLink: p.link || '',
       driveCode: p.extractCode || '',
-      drivePoint: p.unlockPoint || 0,
+      drivePoint: 0,
       relatedPostId: p.id,
     });
   }
+  // 关联帖子后，积分解锁改为不可填（解锁在帖子内完成）
+  function syncRelatedDrive(postId) {
+    const inp = document.getElementById('f-drive-point');
+    const hint = document.getElementById('f-drive-point-hint');
+    if (!inp) return;
+    const linked = !!postId;
+    if (linked) inp.value = 0;
+    inp.disabled = linked;
+    inp.style.opacity = linked ? '0.55' : '1';
+    inp.style.cursor = linked ? 'not-allowed' : '';
+    if (hint) hint.style.display = linked ? '' : 'none';
+  }
+
   function editArticle(id, prefill = {}) {
     const a = id ? get('articles').find(x => x.id === id) : prefill;
     openModal(id ? '编辑文章' : '新增文章', `
@@ -749,12 +1008,13 @@ const Admin = (() => {
       </div>
       <div class="field">
         <label>关联帖子（文章页展示入口，点击跳转对应帖）</label>
-        <select class="input" id="f-related-post">
+        <select class="input" id="f-related-post" onchange="Admin.syncRelatedDrive(this.value)">
           <option value="">不关联</option>
           ${(get('posts') || []).filter(p => p.status === 'approved').map(p =>
             `<option value="${esc(p.id)}" ${a.relatedPostId === p.id ? 'selected' : ''}>[${p.type === 'demand' ? '求资源' : '我分享'}] ${esc(p.title)}</option>`
           ).join('')}
         </select>
+        <div class="hint">关联网友帖子后，读者必须跳转到帖子内解锁下单，文章内不再单独售卖。</div>
       </div>
       <div class="field" style="border-top:1px solid var(--line);padding-top:14px;margin-top:6px">
         <label style="font-weight:600;color:var(--text)">📎 文末网盘链接（选填）</label>
@@ -762,7 +1022,10 @@ const Admin = (() => {
           <div><label style="font-size:12px;color:var(--muted)">网盘类型</label>
             <input class="input" id="f-drive-type" value="${esc(a.driveType || '')}" placeholder="如：夸克网盘 / 百度网盘"></div>
           <div><label style="font-size:12px;color:var(--muted)">解锁积分（0 = 免费获取）</label>
-            <input class="input" id="f-drive-point" type="number" min="0" value="${a.drivePoint || 0}"></div>
+            <input class="input" id="f-drive-point" type="number" min="0" value="${a.drivePoint || 0}">
+            <div class="hint" id="f-drive-point-hint" style="display:none;color:var(--amber)">
+              已关联网友帖子：积分解锁由帖子设置，此处不可填
+            </div></div>
         </div>
         <div style="margin-top:8px"><label style="font-size:12px;color:var(--muted)">网盘链接</label>
           <input class="input" id="f-drive-link" value="${esc(a.driveLink || '')}" placeholder="https://pan.quark.cn/s/..."></div>
@@ -780,7 +1043,9 @@ const Admin = (() => {
         driveType: document.getElementById('f-drive-type').value.trim(),
         driveLink: document.getElementById('f-drive-link').value.trim(),
         driveCode: document.getElementById('f-drive-code').value.trim(),
-        drivePoint: Math.max(0, parseInt(document.getElementById('f-drive-point').value, 10) || 0),
+        drivePoint: document.getElementById('f-drive-point').disabled
+          ? 0
+          : Math.max(0, parseInt(document.getElementById('f-drive-point').value, 10) || 0),
         relatedPostId: document.getElementById('f-related-post') ? document.getElementById('f-related-post').value : '',
       };
       if (!v.title) { toast('标题不能为空'); return false; }
@@ -794,6 +1059,7 @@ const Admin = (() => {
       setTimeout(() => go('articles'), 60);
       return true;
     });
+    syncRelatedDrive(a.relatedPostId || '');
   }
   async function delComment(id) {
     if (!confirm('确认删除这条评论？')) return;
@@ -870,7 +1136,10 @@ const Admin = (() => {
   /* ===== 分类 ===== */
   function renderCategories() {
     const c = get('categories') || {};
+    const s = get('settings') || {};
     const join = a => (Array.isArray(a) ? a.join('，') : '');
+    const fallbackThumb = 'https://img.cdn1.vip/i/6aec4bef86be6_1793870831.webp';
+    const thumb = s.defaultThumb || fallbackThumb;
     return `
       <div class="panel" style="margin-bottom:18px">
         <div class="panel-head"><h2>分类配置</h2><div class="actions">
@@ -881,7 +1150,34 @@ const Admin = (() => {
           <div class="field"><label>人物标签（逗号分隔）</label><textarea id="c-tags" rows="2">${esc(join(c.personTags))}</textarea></div>
           <div class="hint">支持中文逗号或英文逗号分隔；保存后前台投稿与筛选选项会同步更新。</div>
         </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>🖼️ 站点设置 · 默认缩略图</h2><div class="actions">
+          <button class="btn btn-sm btn-primary" onclick="Admin.saveSettings()">保存设置</button></div></div>
+        <div class="panel-body" style="padding:18px">
+          <div class="field">
+            <label>论坛列表默认缩略图（图片直链）</label>
+            <input class="input" id="s-default-thumb" value="${esc(thumb)}" placeholder="${esc(fallbackThumb)}"
+              oninput="var p=document.getElementById('s-thumb-preview');if(p)p.src=this.value.trim()||'${esc(fallbackThumb)}'">
+            <div class="hint">网友投稿未填缩略图时，论坛列表左侧展示此图；留空保存则恢复系统默认图。</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
+            <img id="s-thumb-preview" src="${esc(thumb)}" alt="默认缩略图预览"
+              style="width:108px;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--panel-2)">
+            <div class="hint" style="margin:0">预览（108×80 裁切效果）<br>可前往 <a href="https://img.scdn.io/" target="_blank" rel="noopener" style="color:var(--primary-2)">img.scdn.io</a> 上传后复制链接</div>
+          </div>
+        </div>
       </div>`;
+  }
+  async function saveSettings() {
+    const v = document.getElementById('s-default-thumb').value.trim();
+    if (v && !/^https?:\/\//i.test(v)) { toast('请填写 http/https 图片直链'); return; }
+    try {
+      await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ defaultThumb: v }) });
+    } catch (e) { toast(e.message); return; }
+    toast('站点设置已保存');
+    go('categories');
   }
   async function saveCategories() {
     const split = v => v.split(/[,，]/).map(s => s.trim()).filter(Boolean);
@@ -977,15 +1273,17 @@ const Admin = (() => {
   }
 
   return {
-    go, logout, boot, openModal, closeModal,
+    go, logout, boot, openModal, closeModal, toggleTheme,
     setPostTab: k => { state.postTab = k; go('posts'); },
+    setCommentTab, handleMention, delPostComment,
     setStatus, delPost, finishDemand, refundDemand,
     editPerson, delPerson,
     editWork, setWorkStatus, delWork,
     searchPoints, adjustPoints,
-    editArticle, postToArticle, delArticle, wrapSel, fmtLink, delComment,
+    searchUsers, adminResetPwd, rejectReset,
+    editArticle, postToArticle, delArticle, syncRelatedDrive, wrapSel, fmtLink, delComment,
     editBanner, delBanner,
-    saveCategories,
+    saveCategories, saveSettings,
     exportData,
   };
 })();
